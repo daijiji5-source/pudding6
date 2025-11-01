@@ -1,0 +1,3584 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clock Planner v6</title>
+<style>
+  :root{
+    --bg:#0d1015; --fg:#e8e8eb; --muted:#a7adba;
+    --face:#0d1015; --ring:#222834; --tickMajor:#3a4150; --tickMinor:#262c37;
+    --handH:#ffffff; --handM:#e2e5ea; --handS:#4da3ff; --accent:#4da3ff;
+    --arcShadow: drop-shadow(0 2px 3px rgba(0,0,0,.4));
+  }
+  .theme-minimal{}
+  .theme-classic{
+    --bg:#f1f2f6; --fg:#1b1f28; --muted:#5a6477;
+    --face:#f7f8fb; --ring:#cfd6e3; --tickMajor:#7e8aa1; --tickMinor:#b6bfce;
+    --handH:#1b1f28; --handM:#2b3240; --handS:#d1382f; --accent:#2b7cff;
+  }
+  .theme-neon{
+    --bg:#0a0b10; --fg:#eaf2ff; --muted:#8aa7ff;
+    --face:#0a0b10; --ring:#162036; --tickMajor:#1e2a4a; --tickMinor:#121a30;
+    --handH:#eaf2ff; --handM:#b7c7ff; --handS:#00eaff; --accent:#7b5cff;
+    --arcShadow: drop-shadow(0 0 8px rgba(123,92,255,.75)) drop-shadow(0 0 14px rgba(0,234,255,.45));
+  }
+  .theme-paper{
+    --bg:#faf7f0; --fg:#2c2a25; --muted:#6f6a5e;
+    --face:#fffaf0; --ring:#e7ddc5; --tickMajor:#b9ac8e; --tickMinor:#d9cfb7;
+    --handH:#2c2a25; --handM:#444136; --handS:#b76e79; --accent:#b76e79;
+  }
+  .theme-glass{
+    --bg:#0b0f14; --fg:#e7f2ff; --muted:#9fb7d6;
+    --face:rgba(255,255,255,.06); --ring:#2a3544; --tickMajor:#3b4a61; --tickMinor:#253042;
+    --handH:#e7f2ff; --handM:#bcd4f3; --handS:#79c2ff; --accent:#79c2ff;
+    backdrop-filter: blur(8px);
+  }
+  .theme-pudding{
+    --bg:#fef6e4; --fg:#5a4a2f; --muted:#a89268;
+    --face:#fff9ea; --ring:#e6d5a8; --tickMajor:#d4b77a; --tickMinor:#e8ddb8;
+    --handH:#5a4a2f; --handM:#7a6a4f; --handS:#d4a574; --accent:#d4a574;
+  }
+  .theme-metal{
+    --bg:#1a1d23; --fg:#e4e7ec; --muted:#8a909d;
+    --face:#2a2d35; --ring:#3f454f; --tickMajor:#5a616e; --tickMinor:#434952;
+    --handH:#e4e7ec; --handM:#c5c9d1; --handS:#4db8ff; --accent:#4db8ff;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%; margin:0}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow-x:hidden;
+  }
+  header{padding:12px; border-bottom:1px solid var(--ring)}
+  header h1{margin:0; font-size:18px; font-weight:700}
+  .tabs{display:flex; gap:4px; padding:8px 12px; background:rgba(0,0,0,.1); flex-wrap:wrap}
+  .tab{padding:10px 16px; cursor:pointer; border-radius:8px; background:transparent; color:var(--muted); transition:.2s; border:none; font-size:14px}
+  .tab.active{background:var(--accent); color:#fff}
+  .tab-content{display:none; padding:12px}
+  .tab-content.active{display:block}
+  main{max-width:1200px; margin:0 auto}
+
+  .card{background:rgba(255,255,255,.04); border:1px solid var(--ring); border-radius:14px; padding:16px; margin-bottom:12px}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px}
+  select,input[type="time"],input[type="text"],input[type="color"],input[type="number"]{
+    background:rgba(0,0,0,.3); color:var(--fg); border:1px solid var(--ring); border-radius:8px; padding:8px; font-size:14px;
+  }
+  button{appearance:none; border:none; border-radius:8px; padding:8px 12px; font-size:13px; color:#fff; background:var(--accent); cursor:pointer; transition:.2s}
+  button:hover{opacity:.85}
+  button.ghost{background:transparent; color:var(--fg); border:1px solid var(--ring)}
+  button.danger{background:#e74c3c}
+  .list{display:flex; flex-direction:column; gap:8px; max-height:300px; overflow:auto}
+  .item{display:flex; align-items:center; justify-content:space-between; gap:8px; background:rgba(0,0,0,.2); border:1px solid var(--ring); border-radius:10px; padding:10px}
+  .badge{width:14px; height:14px; border-radius:50%; flex-shrink:0}
+  .tiny{font-size:12px; color:var(--muted)}
+  .clock-wrap{position:relative; display:flex; align-items:center; justify-content:center; padding:20px; position:relative; flex-direction:column}
+  svg{max-width:500px; width:100%; height:auto; display:block; touch-action:none}
+  .drag-hint{position:absolute; bottom:30px; background:var(--accent); color:#fff; padding:10px 16px; border-radius:8px; font-size:18px; font-weight:700; pointer-events:none; opacity:0; transition:.2s}
+  .drag-hint.show{opacity:1}
+  
+  .timer-item{background:rgba(0,0,0,.2); border:1px solid var(--ring); border-radius:10px; padding:16px; margin-bottom:8px}
+  .timer-display{font-size:48px; font-weight:700; text-align:center; margin:16px 0; font-family:monospace}
+  .timer-gauge{width:100%; height:10px; background:rgba(0,0,0,.3); border-radius:10px; overflow:hidden; margin:12px 0; position:relative}
+  .timer-gauge-fill{height:100%; transition:width .3s linear; position:absolute; left:0; top:0}
+  .timer-btns{display:flex; gap:8px; justify-content:center; flex-wrap:wrap}
+  
+  .sw-item{background:rgba(0,0,0,.2); border:1px solid var(--ring); border-radius:10px; padding:16px; margin-bottom:8px}
+  .sw-time{font-size:32px; font-weight:700; text-align:center; margin:8px 0; font-family:monospace}
+  .sw-btns{display:flex; gap:8px; justify-content:center; margin-top:12px}
+  
+  .status-bar{background:rgba(0,0,0,.3); border:1px solid var(--ring); border-radius:10px; padding:12px; margin-top:12px; text-align:center; font-size:16px; font-weight:700; font-family:monospace}
+  
+  @keyframes pulse{0%,100%{transform:scale(1)} 50%{transform:scale(1.05)}}
+  @keyframes shake{0%,100%{transform:translateX(0)} 25%{transform:translateX(-10px)} 75%{transform:translateX(10px)}}
+  .alert{animation:pulse .5s ease-in-out 4}
+  .notification{position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--accent); color:#fff; padding:16px 32px; border-radius:12px; font-weight:700; z-index:1000; box-shadow:0 4px 20px rgba(0,0,0,.3); animation:shake .5s}
+  
+  .study-panel{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px}
+  .study-stat{background:rgba(0,0,0,.2); border:1px solid var(--ring); border-radius:10px; padding:12px; text-align:center}
+  .study-stat-value{font-size:28px; font-weight:700; color:var(--accent); margin:4px 0}
+  .study-stat-label{font-size:11px; color:var(--muted)}
+  
+  .page-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(60px, 1fr)); gap:6px; margin-top:12px; max-height:300px; overflow:auto; padding:4px}
+  .page-btn{padding:12px 8px; background:rgba(0,0,0,.2); border:1px solid var(--ring); border-radius:8px; cursor:pointer; transition:.2s; text-align:center; font-size:13px}
+  .page-btn:hover{background:rgba(0,0,0,.4)}
+  .page-btn.completed{background:var(--accent); color:#fff; border-color:var(--accent)}
+  
+  .timeline-container{position:relative; width:100%; height:120px; background:rgba(0,0,0,.3); border:1px solid var(--ring); border-radius:10px; overflow:hidden; margin-top:12px}
+  .timeline-scroll{position:relative; width:100%; height:100%; overflow-x:auto; scroll-behavior:smooth}
+  
+  .hp-bar-container{
+    width:100%; max-width:400px; margin:16px auto; display:none;
+  }
+  .hp-bar-container.active{display:block}
+  .hp-bar-outer{
+    width:100%; height:40px; background:rgba(0,0,0,.5); border:3px solid #2a5;
+    border-radius:20px; overflow:hidden; position:relative;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,.6), 0 0 20px rgba(42,170,85,.4);
+  }
+  .hp-bar-bg{
+    position:absolute; width:100%; height:100%;
+    background: linear-gradient(180deg, rgba(255,255,255,.1) 0%, transparent 50%, rgba(0,0,0,.2) 100%);
+  }
+  .hp-bar-fill{
+    position:absolute; height:100%; transition:width .5s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(90deg, #2a5 0%, #3c7 50%, #2a5 100%);
+    box-shadow: inset 0 2px 4px rgba(255,255,255,.3), 0 0 15px rgba(42,170,85,.8);
+  }
+  .hp-bar-afterglow{
+    position:absolute; height:100%; transition:all .8s ease-out; opacity:0;
+    background: linear-gradient(90deg, transparent, #6f8);
+    pointer-events:none;
+  }
+  .hp-bar-shine{
+    position:absolute; height:100%; width:200%; top:0; left:-200%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent);
+    animation: shine 3s infinite;
+  }
+  @keyframes shine{
+    0%{left:-200%}
+    50%{left:100%}
+    100%{left:100%}
+  }
+  @keyframes hpShake{
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-4px)}
+    50%{transform:translateX(4px)}
+    75%{transform:translateX(-2px)}
+  }
+  .hp-bar-container.hit{animation:hpShake .4s}
+  .hp-bar-label{
+    text-align:center; margin-top:8px; font-weight:700; font-size:14px;
+    text-shadow: 0 0 10px rgba(42,170,85,.8);
+  }
+  
+  
+  .page-complete-btn.active{display:block}
+  .page-complete-btn:hover{transform:translateY(-2px); box-shadow: 0 12px 32px rgba(102,126,234,.6)}
+  .page-complete-btn:active{transform:translateY(0)}
+  
+  @media(max-width:600px){
+    .study-panel{grid-template-columns:1fr}
+  }
+
+#hpBarContainer{display:none!important}
+
+  .study-overall{
+    font-family:monospace;
+    font-weight:700;
+    text-align:center;
+    margin:0 0 8px 0;
+    padding:8px 12px;
+    border:1px solid var(--ring);
+    border-radius:10px;
+    background:rgba(0,0,0,.2);
+  }
+
+
+  /* --- Numberline (integrated) --- */
+  .nl-row{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:center;margin:14px 0}
+  .nl-row{padding-bottom:30px}
+  .nl-hourBadge{justify-self:end;font-size:13px;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--ring);border-radius:12px;padding:6px 8px;letter-spacing:.04em}
+  .nl-rail{position:relative;height:126px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)) , rgba(0,0,0,.25);border:1px solid var(--ring);padding:18px 12px 14px;overflow:hidden}
+  .nl-scale{position:relative;height:62px;margin:0 14px;border-radius:10px; z-index:1}
+  .nl-track{position:absolute;left:0;right:0;top:50%;height:4px;background:rgba(255,255,255,.12);transform:translateY(-50%);border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.04)}
+  .nl-ticks{position:absolute;left:0;right:0;top:0;bottom:0}
+  .nl-tick{ position:absolute; width:1px; background: var(--tickMinor, rgba(255,255,255,0.35)); top:40%; height:28%; transform:translateX(-50%);}
+  .nl-tick.major{ width:3px; background: var(--tickMajor, rgba(255,255,255,0.85)); top:30%; height:40%; }
+  .nl-label{position:absolute;top:0;transform:translateX(-50%);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .nl-cap{position:absolute;top:36px;left:14px;right:14px;display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
+  .nl-hand{position:absolute;top:8px;bottom:8px;width:0;transform:translateX(-50%);pointer-events:none; z-index:3}
+  .nl-hand.m::after{content:"";display:block;height:100%;width:6px;border-radius:3px;background:var(--accent)}
+  .nl-hand::after{ transform:translateX(-50%); }
+  .nl-hand.s::after{content:"";display:block;height:100%;width:4px;border-radius:2px;background:var(--handS)}
+  .nl-hand.s::after{ margin-left:-0.5px }
+  .nl-bars{position:absolute;left:14px;right:14px;top:54px;height:28px; z-index:2}
+  .nl-bar{position:absolute;height:100%;border-radius:8px;color:#0b1020;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;backdrop-filter:saturate(120%) blur(.3px);border:1px solid rgba(255,255,255,.35);box-shadow:0 6px 16px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.2)}
+
+
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+  /* === Timer HUD (no bars/gauges) === */
+  .hud-pill{display:inline-block; padding:6px 10px; border-radius:8px; 
+    background: var(--ring); color: var(--muted); border:1px solid rgba(255,255,255,.15);
+    font-size:14px; letter-spacing:.02em; user-select:none; cursor:pointer;
+    font-variant-numeric: tabular-nums; box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .hud-pill.strong{ color: var(--fg); background: rgba(77,163,255,0.12); border-color: rgba(77,163,255,0.35); }
+  .hud-pill.warn{ color:#eab308; border-color:rgba(234,179,8,.35); }
+  .hud-pill.danger{ color:#f97316; border-color:rgba(249,115,22,.35); }
+  .hud-note{ font-size:12px; color: var(--muted); margin-left:6px }
+
+
+  /* Planner ETA position tweak: a bit higher than numberline */
+  #plEta.nl-eta{ bottom:-8px; }
+
+
+  /* === Horror Theme (Upgraded) === */
+  .theme-horror{
+    --bg:#09090b; --face:#111114; --ring:rgba(255,255,255,0.06);
+    --muted:#e5e5ea; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.18); --tickMajor:rgba(255,255,255,0.92);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible; }
+  .theme-horror #clock{ filter:drop-shadow(0 4px 18px rgba(193,18,31,.35)); }
+
+  /* Aura: slow rotating radial glow */
+  .theme-horror .h-aura{
+    position:absolute; inset:-12% -12% -12% -12%; border-radius:50%;
+    background: conic-gradient(from 0deg, rgba(193,18,31,.12), transparent 35%, rgba(255,255,255,.06) 50%, transparent 65%, rgba(193,18,31,.12));
+    animation: aura-rot 18s linear infinite, aura-flicker 2.6s ease-in-out infinite;
+    filter: blur(18px);
+    pointer-events:none;
+  }
+  @keyframes aura-rot { to{ transform: rotate(360deg); } }
+  @keyframes aura-flicker { 0%,100%{ opacity:.35 } 45%{ opacity:.6 } 55%{ opacity:.25 } }
+
+  /* Fog layers: slow parallax drift */
+  .theme-horror .h-fog{
+    position:absolute; inset:-8% -8% -8% -8%; pointer-events:none;
+    background: radial-gradient(60% 60% at 40% 50%, rgba(255,255,255,.035), transparent 60%),
+                radial-gradient(50% 50% at 70% 60%, rgba(255,255,255,.03), transparent 65%),
+                radial-gradient(70% 70% at 30% 40%, rgba(255,255,255,.04), transparent 70%);
+    filter: blur(16px);
+    opacity:.55;
+  }
+  .theme-horror .h-fog.f1{ animation:fog-drift-1 40s linear infinite; }
+  .theme-horror .h-fog.f2{ animation:fog-drift-2 55s linear infinite; opacity:.35; filter: blur(22px); }
+  @keyframes fog-drift-1 { 0%{ transform:translate3d(-2%,0,0) } 50%{ transform:translate3d(2%,1%,0) } 100%{ transform:translate3d(-2%,0,0) } }
+  @keyframes fog-drift-2 { 0%{ transform:translate3d(1%,0,0) } 50%{ transform:translate3d(-3%,-1%,0) } 100%{ transform:translate3d(1%,0,0) } }
+
+  /* Vignette & scanlines */
+  .theme-horror .h-vignette{
+    position:absolute; inset:-10% -10% -10% -10%; pointer-events:none;
+    background: radial-gradient(60% 60% at 50% 50%, transparent 55%, rgba(0,0,0,.35) 85%, rgba(0,0,0,.55));
+    mix-blend-mode:multiply; animation:vignette-pulse 6s ease-in-out infinite;
+  }
+  @keyframes vignette-pulse{ 0%,100%{ opacity:.85 } 50%{ opacity:.7 } }
+
+  .theme-horror .h-scan{
+    position:absolute; inset:0; pointer-events:none;
+    background: repeating-linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.03) 1px, transparent 2px, transparent 4px);
+    opacity:.18; animation:scan-flicker 3.5s linear infinite;
+  }
+  @keyframes scan-flicker{ 0%,100%{ opacity:.14 } 40%{ opacity:.22 } 55%{ opacity:.1 } }
+
+  /* Subtle hand heartbeat (minute & second hands) */
+  .theme-horror #hands{ transform-origin:250px 250px; animation:hand-breath 5.2s ease-in-out infinite; }
+  @keyframes hand-breath{ 0%,100%{ transform:scale(1)} 50%{ transform:scale(1.01)} }
+
+/* Planner top complete button */
+  #pageCompleteBtn{position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:50;}
+  /* Unify design with numberline button */
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Unify planner complete button with numberline style */
+  #pageCompleteBtn.btn.small{
+    background: var(--ring);
+    color: var(--muted);
+    border:1px solid rgba(255,255,255,.35);
+    box-shadow: 0 6px 16px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.2);
+    backdrop-filter: saturate(140%) blur(6px);
+    -webkit-backdrop-filter: saturate(140%) blur(6px);
+  }
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+
+
+  /* === Overall Study Indicators === */
+  .overall-study{
+    display:flex; gap:12px; align-items:center; justify-content:center;
+    margin:8px 0 4px 0; padding:14px 14px 12px; /* 少し下げる */
+    border:1px solid var(--ring); border-radius:12px;
+    background:rgba(0,0,0,.25); font-weight:700; font-family:monospace;
+  }
+  .overall-study #osiRemain{ color:var(--accent); font-size:14px; transform:translateY(2px) }
+  .overall-study #osiEnd{ color:var(--fg); font-size:14px; transform:translateY(2px) }
+
+  .nl-overall{
+    position:absolute; right:10px; top:14px; /* 少し下げる */
+    padding:10px 12px 8px; border:1px solid var(--ring); border-radius:10px;
+    background:rgba(0,0,0,.35); font-weight:700; font-size:13px; line-height:1.1;
+    pointer-events:auto; z-index:5;
+  }
+  .nl-overall div, .nl-overall small{ transform:translateY(1px) }
+  .nl-overall small{ display:block; color:var(--muted); font-weight:600; margin-top:2px }
+
+
+  /* Inline overall indicator next to per-event ETA in numberline */
+  .nl-overall-inline{
+    position:absolute;
+    bottom:-24px; /* align with nl-eta */
+    left: calc(50% + 120px); /* a bit to the right of centered eta */
+    transform: translateX(0);
+    font-size:12px;
+    font-weight:700;
+    background: rgba(0,0,0,.28);
+    border: 1px solid var(--ring);
+    border-radius: 8px;
+    padding: 3px 6px;
+    color: var(--fg);
+    pointer-events:auto;
+    z-index: 6;
+    font-family: monospace;
+  }
+
+</style>
+<style>.nl-bars{padding:0;border:0;box-sizing:border-box;}
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Planner top complete button */
+  #pageCompleteBtn{position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:50;}
+  /* Unify design with numberline button */
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Unify planner complete button with numberline style */
+  #pageCompleteBtn.btn.small{
+    background: var(--ring);
+    color: var(--muted);
+    border:1px solid rgba(255,255,255,.35);
+    box-shadow: 0 6px 16px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.2);
+    backdrop-filter: saturate(140%) blur(6px);
+    -webkit-backdrop-filter: saturate(140%) blur(6px);
+  }
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+
+</style><style>.nl-tick,.nl-label{transform:translateX(-50%);} .nl-hand{transform:translateX(-50%);}
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Planner top complete button */
+  #pageCompleteBtn{position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:50;}
+  /* Unify design with numberline button */
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Unify planner complete button with numberline style */
+  #pageCompleteBtn.btn.small{
+    background: var(--ring);
+    color: var(--muted);
+    border:1px solid rgba(255,255,255,.35);
+    box-shadow: 0 6px 16px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.2);
+    backdrop-filter: saturate(140%) blur(6px);
+    -webkit-backdrop-filter: saturate(140%) blur(6px);
+  }
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+
+</style><style>/* nl-bar override */.nl-bar{height:22px;position:absolute;top:56%;transform:translateY(-50%);border-radius:6px;}
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Planner top complete button */
+  #pageCompleteBtn{position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:50;}
+  /* Unify design with numberline button */
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Unify planner complete button with numberline style */
+  #pageCompleteBtn.btn.small{
+    background: var(--ring);
+    color: var(--muted);
+    border:1px solid rgba(255,255,255,.35);
+    box-shadow: 0 6px 16px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.2);
+    backdrop-filter: saturate(140%) blur(6px);
+    -webkit-backdrop-filter: saturate(140%) blur(6px);
+  }
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+
+</style>
+<style>
+/* numberline tick visibility tweaks */
+.nl-scale{ position: relative; }
+.nl-tick{ position:absolute; width:1px; background: var(--tickMinor, rgba(255,255,255,0.35)); top:40%; height:28%; transform:translateX(-50%);}
+.nl-tick.major{ width:3px; background: var(--tickMajor, rgba(255,255,255,0.85)); top:30%; height:40%; }
+
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Planner top complete button */
+  #pageCompleteBtn{position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:50;}
+  /* Unify design with numberline button */
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Unify planner complete button with numberline style */
+  #pageCompleteBtn.btn.small{
+    background: var(--ring);
+    color: var(--muted);
+    border:1px solid rgba(255,255,255,.35);
+    box-shadow: 0 6px 16px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.2);
+    backdrop-filter: saturate(140%) blur(6px);
+    -webkit-backdrop-filter: saturate(140%) blur(6px);
+  }
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+
+</style>
+
+<style>
+/* 仮（Aqua風）テーマ */
+body.kari{
+  --bg: radial-gradient(120% 100% at 50% 0%, #eef6ff 0%, #d9ecff 40%, #cfe8ff 60%, #c5e2ff 80%, #badaff 100%);
+  --card: rgba(255,255,255,0.65);
+  --muted: #366080;
+  --tickMinor: rgba(70,100,130,0.35);
+  --tickMajor: rgba(40,80,120,0.9);
+}
+body.kari{ background: var(--bg); }
+body.kari .panel{ background: var(--card); backdrop-filter: blur(8px) saturate(140%); box-shadow: 0 10px 30px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.6); }
+body.kari #clock{ filter: drop-shadow(0 10px 18px rgba(0,0,0,0.15)); }
+body.kari .badge{ border: 1px solid rgba(255,255,255,0.6); }
+body.kari .tab.active{ background: linear-gradient(#ffffff,#eaf4ff); border: 1px solid rgba(0,0,0,0.08); box-shadow: inset 0 1px 0 rgba(255,255,255,0.8); }
+body.kari .tab{ background: linear-gradient(#f6fbff,#e8f3ff); border: 1px solid rgba(0,0,0,0.06); }
+body.kari .nl-bar{ box-shadow: inset 0 1px 2px rgba(255,255,255,0.85), inset 0 -1px 2px rgba(0,0,0,0.12), 0 6px 14px rgba(0,0,0,0.18); }
+
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Planner top complete button */
+  #pageCompleteBtn{position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:50;}
+  /* Unify design with numberline button */
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Unify planner complete button with numberline style */
+  #pageCompleteBtn.btn.small{
+    background: var(--ring);
+    color: var(--muted);
+    border:1px solid rgba(255,255,255,.35);
+    box-shadow: 0 6px 16px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.2);
+    backdrop-filter: saturate(140%) blur(6px);
+    -webkit-backdrop-filter: saturate(140%) blur(6px);
+  }
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+
+</style>
+
+
+
+<style>
+/* migrated from テーマ.html */
+@keyframes waterRipple {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 200% 0, -200% 0; }
+}
+
+@keyframes auroraFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+body.water{
+  --bg1: radial-gradient(120% 90% at 50% -10%, rgba(180,220,255,0.9), rgba(120,180,255,0.5), rgba(30,120,200,0.35));
+  --bg2: repeating-linear-gradient( to right, rgba(255,255,255,0.15) 0 2px, rgba(0,0,0,0) 2px 6px );
+  background-image: var(--bg1), var(--bg2);
+  background-size: 200% 100%, 300% 100%;
+  animation: waterRipple 18s linear infinite;
+}
+
+body.water .panel{ background: rgba(255,255,255,0.6); backdrop-filter: blur(10px) saturate(140%); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+
+body.aurora{
+  background: linear-gradient(120deg, #091540, #102a68, #183a72, #2a628f, #1b998b, #6ed0ff);
+  background-size: 400% 400%;
+  animation: auroraFlow 22s ease-in-out infinite;
+}
+
+body.aurora .panel{ background: rgba(255,255,255,0.5); backdrop-filter: blur(12px) saturate(140%); }
+
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Planner top complete button */
+  #pageCompleteBtn{position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:50;}
+  /* Unify design with numberline button */
+  .btn.small{font-size:12px;padding:6px 10px;border-radius:6px; background:var(--ring); color:var(--muted); border:1px solid rgba(255,255,255,.15); cursor:pointer}
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+  .btn.small:hover{filter:brightness(1.1)}
+  .btn.small.danger{background:#5b1e1e;color:#fff;border-color:#9e2a2a}
+
+  /* Unify planner complete button with numberline style */
+  #pageCompleteBtn.btn.small{
+    background: var(--ring);
+    color: var(--muted);
+    border:1px solid rgba(255,255,255,.35);
+    box-shadow: 0 6px 16px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.2);
+    backdrop-filter: saturate(140%) blur(6px);
+    -webkit-backdrop-filter: saturate(140%) blur(6px);
+  }
+
+  /* === Horror Theme === */
+  .theme-horror{
+    --bg:#0b0b0d; --face:#121216; --ring:rgba(255,255,255,0.08);
+    --muted:#d0cfd4; --accent:#c1121f; --handH:#fafafa; --handM:#ff3b3b; --handS:#ff3b3b;
+    --tickMinor:rgba(255,255,255,0.15); --tickMajor:rgba(255,255,255,0.9);
+  }
+  .theme-horror .clock-wrap{ position:relative; overflow:visible;}
+  .theme-horror #clock{ filter:drop-shadow(0 2px 8px rgba(193,18,31,.5)); }
+  .theme-horror .bleed{ position:absolute; left:50%; top:-8px; width:6px; height:18px; background:#c1121f;
+    border-radius:3px; transform:translateX(-50%); animation:drip 2.2s infinite ease-in; box-shadow:0 0 8px rgba(193,18,31,.6); }
+  @keyframes drip { 0%{ transform:translate(-50%,0) scaleY(0.6);} 70%{ transform:translate(-50%,20px) scaleY(1);} 100%{ transform:translate(-50%,0) scaleY(0.6);} }
+  .theme-horror .pulse { position:absolute; inset:auto 0 0 0; height:2px; background:linear-gradient(90deg, transparent, rgba(193,18,31,.65), transparent);
+    animation:pulse 1.8s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{ opacity:.2 } 50%{ opacity:1 } }
+
+
+  .nl-eta{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);padding:4px 14px;border-radius:999px;background:rgba(0,0,0,.35);color:var(--muted);font-size:16px;font-weight:700;line-height:1;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);pointer-events:none}
+  .nl-fullscreen{position:fixed;inset:0;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .nl-fullscreen .nl-row{width:min(1400px,95vw)}
+  .nl-row{padding-bottom:30px}
+  .nl-fs-close{position:fixed;top:16px;right:16px;background:var(--ring);border:1px solid rgba(255,255,255,.1);
+    color:var(--muted);border-radius:999px;padding:8px 12px;font-size:14px}
+
+
+</style>
+</head>
+<body class="theme-minimal">
+  <header>
+    <h1>🕐 Clock Planner v6</h1>
+  </header>
+  
+  <div class="tabs">
+    <button class="tab active" data-tab="planner">📅 プランナー</button>
+    <button class="tab" data-tab="timer">⏲️ タイマー</button>
+    <button class="tab" data-tab="stopwatch">⏱️ ストップウォッチ</button>
+    <button class="tab" data-tab="timeline">📊 タイムライン</button>
+    <button class="tab" data-tab="digital">🔢 デジタル</button>
+    <button class="tab" data-tab="numberline">📏 数直線</button>
+    <button class="tab" data-tab="study">📚 勉強管理</button>
+  </div>
+
+  <main>
+    <div class="tab-content active" data-content="planner">
+      <div class="card">
+        <div class="hp-bar-container" id="hpBarContainer">
+          <div class="hp-bar-outer">
+            <div class="hp-bar-afterglow" id="hpAfterGlow"></div>
+            <div class="hp-bar-fill" id="hpBarFill">
+              <div class="hp-bar-shine"></div>
+            </div>
+            <div class="hp-bar-bg"></div>
+          </div>
+          <div class="hp-bar-label" id="hpLabel">残り: 100%</div>
+        </div>
+        
+        <button class="btn small" id="pageCompleteBtn">📖 ページ完了 0/0</button>
+        
+        
+        <!-- ▼ Overall (study) total remain/end; visible only when study auto-generated exists -->
+        <div id="overallStudyInfo" class="overall-study" style="display:none">
+          <span id="osiRemain">残り --</span>
+          <span id="osiEnd">終了 --:--</span>
+        </div>
+
+        <div class="clock-wrap">
+<svg id="clock" viewBox="0 0 500 500">
+            <defs>
+              <filter id="shadow">
+                <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".3"/>
+              </filter>
+              <linearGradient id="glassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:rgba(255,255,255,.3)"/>
+                <stop offset="100%" style="stop-color:rgba(255,255,255,0)"/>
+              </linearGradient>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+              <linearGradient id="arcGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" id="arcGradStart1"/>
+                <stop offset="100%" id="arcGradEnd1"/>
+              </linearGradient>
+              <linearGradient id="arcGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" id="arcGradStart2"/>
+                <stop offset="50%" id="arcGradMid2"/>
+                <stop offset="100%" id="arcGradEnd2"/>
+              </linearGradient>
+            </defs>
+            <circle cx="250" cy="250" r="235" fill="var(--face)" stroke="var(--ring)" stroke-width="2"/>
+            <g id="ticks"></g>
+            <g id="numbers"></g>
+            <g id="arcs"></g>
+            <g id="timerArcs" style="pointer-events:none"></g>
+            <g id="outerArcs1"></g>
+            <g id="outerArcs2"></g>
+            <g id="hands" filter="url(#shadow)">
+              <line id="hHand" x1="250" y1="250" x2="250" y2="110" stroke="var(--handH)" stroke-width="8" stroke-linecap="round"/>
+              <line id="mHand" x1="250" y1="250" x2="250" y2="65" stroke="var(--handM)" stroke-width="5" stroke-linecap="round"/>
+              <line id="sHand" x1="250" y1="250" x2="250" y2="50" stroke="var(--handS)" stroke-width="3" stroke-linecap="round"/>
+            </g>
+            <circle cx="250" cy="250" r="8" fill="var(--handS)"/>
+          </svg>
+          <div id="plEta" class="nl-eta">--</div>
+          <div id="plTimerHUD" class="hud-pill">--</div>
+          <div id="hint" class="drag-hint"></div>
+</div>
+</div>
+
+      <div class="card">
+        <div class="row">
+          <label>テーマ</label>
+          <select id="theme">
+              
+              
+              <option value="water">水（アニメ）</option>
+              <option value="aurora">オーロラ（アニメ）</option>
+              
+              <option value="kari">仮（Aqua風）</option>
+            <option value="theme-minimal" selected>Minimal</option>
+            <option value="theme-classic">Classic</option>
+            <option value="theme-neon">Neon</option>
+            <option value="theme-horror">Horror</option>
+            <option value="theme-paper">Paper</option>
+            <option value="theme-glass">Glass</option>
+            <option value="theme-pudding">Pudding</option>
+            <option value="theme-metal">Metal</option>
+          </select>
+          <label>表示</label>
+          <select id="mode">
+            <option value="day">12時間</option>
+            <option value="hour" selected>60分</option>
+          </select>
+          <label>針の動き</label>
+          <select id="motion">
+            <option value="smooth">スムーズ</option>
+            <option value="tick" selected>カチカチ</option>
+          </select>
+          <label>倍速</label>
+          <select id="timeScale">
+  <option value="1" selected>1x</option>
+  <option value="2">2x</option>
+  <option value="4">4x</option>
+  <option value="8">8x</option>
+  <option value="10">10x</option>
+  <option value="20">20x</option>
+  <option value="40">40x</option>
+  <option value="80">80x</option>
+  <option value="160">160x</option>
+  <option value="320">320x</option>
+  <option value="1000">1000x</option>
+  <option value="5000">5000x</option>
+  <option value="10000">10000x</option>
+  <option value="20000">20000x</option>
+  <option value="50000">50000x</option>
+</select>
+
+          <label>バー形</label>
+          <select id="shape">
+            <option value="arc">アーク</option>
+            <option value="wedge">くさび</option>
+            <option value="bar" selected>帯</option>
+            <option value="triangle">三角</option>
+          </select>
+          <label>バー見た目</label>
+          <select id="style">
+            <option value="solid" selected>ソリッド</option>
+            <option value="glass">ガラス</option>
+            <option value="glow">発光</option>
+            <option value="metal">メタル</option>
+            <option value="gradient">グラデ</option>
+            <option value="rainbow">レインボー</option>
+          </select>
+          <label>時計デザイン</label>
+          <select id="clockDesign">
+            <option value="classic" selected>Classic</option>
+            <option value="minimal">Minimal</option>
+            <option value="neon">Neon</option>
+            <option value="frost">Frost</option>
+            <option value="blueprint">Blueprint</option>
+            <option value="highcontrast">High-Contrast</option>
+          </select> <span class="tiny" style="margin-left:10px;opacity:.8;display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="plShowSeconds"> プランナーの残り秒まで表示</span>
+        
+          <label>スナップ</label>
+          <select id="snap">
+            <option value="1">1分</option>
+            <option value="5" selected>5分</option>
+            <option value="10">10分</option>
+            <option value="15">15分</option>
+          </select>
+        </div>
+        
+        <div class="row">
+          <label>針の動き</label>
+          <select id="motion">
+            <option value="smooth">スムーズ</option>
+            <option value="tick" selected>カチカチ</option>
+          </select>
+          <label>形状</label>
+          <select id="shape">
+            <option value="arc">アーク</option>
+            <option value="wedge">三角</option>
+            <option value="bar" selected>バー</option>
+            <option value="triangle">中央三角</option>
+          </select>
+          <label>見た目</label>
+          <select id="style">
+            <option value="solid">ソリッド</option>
+            <option value="glass">ガラス</option>
+            <option value="glow">グロー</option>
+            <option value="metal">メタル</option>
+            <option value="gradient">グラデーション</option>
+            <option value="rainbow">レインボー</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label>開始</label>
+          <input id="start" type="time" value="09:00">
+          <label>終了</label>
+          <input id="end" type="time" value="10:00">
+          <input id="label" type="text" placeholder="ラベル" style="flex:1">
+          <input id="color" type="color" value="#4da3ff">
+          <button id="add">追加</button>
+        </div>
+
+        <div class="tiny">💡 タップ→長押しドラッグ→離して確定</div>
+        
+        <div style="margin:12px 0; display:flex; gap:8px; flex-wrap:wrap">
+          <button id="undo" class="ghost">↶ 元に戻す</button>
+          <button id="clear" class="ghost danger">🗑️ 全削除</button>
+          <button id="export" class="ghost">💾 保存</button>
+          <button id="import" class="ghost">📂 読込</button>
+          <input id="file" type="file" accept=".json" style="display:none">
+        </div>
+
+        <div class="tiny" style="margin-top:12px">📋 予定一覧</div>
+        <div id="list" class="list"></div>
+      </div>
+    </div>
+
+    <div class="tab-content" data-content="timer">
+      <div class="card">
+        <button id="tAdd" style="width:100%">➕ タイマー追加</button>
+        <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--ring)">
+          <button id="pomo" class="ghost" style="width:100%">🍅 ポモドーロ開始</button>
+          <button id="pomoStop" class="ghost danger" style="width:100%; margin-top:8px; display:none">⏹️ ポモドーロ終了</button>
+          <div id="pomoInfo" class="tiny" style="text-align:center; margin-top:8px"></div>
+        </div>
+        
+        <div class="card" style="margin-top:12px">
+          <div class="row">
+            <label>終了時刻</label>
+            <input id="tUntilTime" type="time" step="60" style="width:120px">
+            <label>表示</label>
+            <select id="tUntilMode">
+              <option value="direct">直接配置</option>
+              <option value="outer">外周</option>
+            </select>
+            <label>色</label>
+            <input id="tUntilColor" type="color" value="#4da3ff" style="width:50px">
+            <button id="tUntilStart">⏲️ 〜まで開始</button>
+          </div>
+          <div class="tiny">今の時刻から選んだ終了時刻までの差分でタイマーを自動設定します（終了が現在より前の場合は翌日扱い）。</div>
+        </div>
+
+        <div id="timerList" style="margin-top:16px"></div>
+      </div>
+    </div>
+
+    <div class="tab-content" data-content="stopwatch">
+      <div class="card">
+        <button id="swAdd" style="width:100%">➕ ストップウォッチ追加</button>
+        <div id="swList" style="margin-top:16px"></div>
+      </div>
+    </div>
+
+    <div class="tab-content" data-content="timeline">
+      <div class="card">
+        <div class="row">
+          <label>表示範囲</label>
+          <select id="tlRange">
+            <option value="60">60分</option>
+            <option value="180">3時間</option>
+            <option value="360">6時間</option>
+            <option value="720">12時間</option>
+            <option value="1440">24時間</option>
+          </select>
+          <label>自動更新</label>
+          <select id="tlAuto">
+            <option value="0">なし</option>
+            <option value="1" selected>あり</option>
+          </select>
+        </div>
+        <div class="timeline-container">
+        </div>
+        <div class="tiny" style="margin-top:8px">現在時刻を中心に予定を時系列表示</div>
+      </div>
+    </div>
+
+    <div class="tab-content" data-content="digital">
+      <div class="card">
+        <div style="text-align:center">
+          <div id="digitalTime" style="font-size:72px; font-weight:700; font-family:monospace; margin:24px 0"></div>
+          <div id="digitalDate" style="font-size:24px; color:var(--muted); margin-bottom:24px"></div>
+        </div>
+      </div>
+    </div>
+
+    
+    <div class="tab-content" data-content="numberline">
+      <div class="card">
+        <h3 style="margin:0 0 12px 0">📏 数直線ビュー（プランナーと同期）</h3>
+        <div class="row">
+          <label>表示する時間数</label>
+          <select id="nlRowCount">
+<option>1</option>
+<option selected>2</option>
+<option>3</option>
+<option>4</option>
+<option>5</option>
+<option>6</option>
+<option>7</option>
+<option>8</option>
+<option>9</option>
+<option>10</option>
+<option>11</option>
+<option>12</option>
+<option>13</option>
+<option>14</option>
+<option>15</option>
+<option>16</option>
+<option>17</option>
+<option>18</option>
+<option>19</option>
+<option>20</option>
+<option>21</option>
+<option>22</option>
+<option>23</option>
+<option>24</option>
+<option>25</option>
+<option>26</option>
+<option>27</option>
+<option>28</option>
+<option>29</option>
+<option>30</option>
+</select>
+          <button id="nlSync" class="ghost">境界に同期（分・秒）</button> <button id="nlFullscreenBtn" class="ghost">全画面</button> <label class="tiny" style="margin-left:8px;display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="nlShowSeconds"> 残り秒まで表示</label>
+          <div class="tiny">※ 先頭行は現在の時。以降は+1時間ずつ。</div>
+        </div>
+
+        <div class="row">
+          <input id="nlTitle" type="text" placeholder="予定タイトル" style="flex:1">
+          <label>開始</label><input id="nlStart" type="time" step="60" style="width:120px">
+          <label>終了</label><input id="nlEnd" type="time" step="60" style="width:120px">
+          <label>色</label><input id="nlColor" type="color" value="#7dd3fc" style="width:54px">
+          <button id="nlAdd">プランナーに追加</button>
+          <span id="nlMsg" class="tiny" style="color:#ef4444"></span>
+        </div>
+
+        <div id="nlRows"></div>
+        <div style="margin-top:8px"><div id="nlTimerHUD" class="hud-pill">--</div><span class="hud-note">（タップで一時停止／再開。0分以下はタップで終了）</span></div>
+      </div>
+    </div>
+
+<div class="tab-content" data-content="study">
+      <div class="card">
+        <h3 style="margin:0 0 12px 0">📚 学習進捗管理</h3>
+        <div class="row">
+          <label>総ページ数</label>
+          <input id="studyTotal" type="number" min="1" value="20" style="width:80px">
+          <label>1ページあたり(分)</label>
+          <input id="studyPerPage" type="number" min="1" value="5" style="width:80px">
+          <button id="studyGenerate">📖 予定生成</button>
+          <button id="studyForceEnd" class="btn small danger">⛔ 強制終了</button>
+        </div>
+        <div class="study-panel">
+          <div class="study-stat">
+            <div class="study-stat-label">総ページ数</div>
+            <div class="study-stat-value" id="statTotal">20</div>
+          </div>
+          <div class="study-stat">
+            <div class="study-stat-label">残りページ数</div>
+            <div class="study-stat-value" id="statRemain">20</div>
+          </div>
+          <div class="study-stat">
+            <div class="study-stat-label">進捗率</div>
+            <div class="study-stat-value" id="statProgress">0%</div>
+          </div>
+          <div class="study-stat">
+            <div class="study-stat-label">推定残り時間</div>
+            <div class="study-stat-value" id="statTime">100分</div>
+          </div>
+        </div>
+        <div class="tiny" style="margin-top:12px">💡 ページをクリックして完了マーク</div>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 12px 0">📊 学習進捗(全ページ)</h3>
+        <div id="studyLog" class="page-grid"></div>
+      </div>
+    </div>
+  </main>
+
+<script>
+(()=>{
+  // ================================
+  // Numberline-first Data Store
+  // ================================
+  // 単一の真実 (Single Source of Truth) : NLStore.events (絶対時刻ベース)
+  // {id, title, start:number(ms since epoch), end:number(ms), color, kind?}
+  const LS_KEY = "nl_events_v1";
+  const $ = (id)=>document.getElementById(id);
+  const clamp = (v,min,max)=>Math.max(min, Math.min(max,v));
+
+  const NLStore = {
+    events: [],
+    load(){
+      try{
+        const raw = localStorage.getItem(LS_KEY);
+        this.events = raw ? JSON.parse(raw) : [];
+      }catch(e){
+        this.events = [];
+      }
+      // 正常化: end<=start を避ける、色/タイトルの既定値
+      this.events = this.events.map(ev=>{
+        const start = Number(ev.start)||0, end = Number(ev.end)||0;
+        return {
+          id: ev.id || (Date.now()+Math.random()),
+          title: (ev.title||"予定").trim(),
+          start: Math.max(0,start),
+          end: Math.max(Math.max(0,start+60*1000), end), // 最短1分
+          color: ev.color || "#4da3ff",
+          kind: ev.kind || "normal"
+        };
+      }).sort((a,b)=>a.start-b.start);
+    },
+    save(){
+      localStorage.setItem(LS_KEY, JSON.stringify(this.events));
+    },
+    clear(){
+      this.events = [];
+      this.save();
+    },
+    addAbs(startDate, endDate, title, color, kind){
+      const s = (startDate instanceof Date) ? startDate.getTime() : Number(startDate);
+      const e = (endDate   instanceof Date) ? endDate.getTime()   : Number(endDate);
+      if(!isFinite(s) || !isFinite(e)) return null;
+      const ev = {
+        id: Date.now()+Math.random(),
+        title: (title||"予定").trim() || "予定",
+        start: Math.min(s,e),
+        end: Math.max(s,e),
+        color: color || "#4da3ff",
+        kind: kind || "normal"
+      };
+      this.events.push(ev);
+      this.events.sort((a,b)=>a.start-b.start);
+      this.save();
+      return ev;
+    },
+    removeById(id){
+      this.events = this.events.filter(ev=>ev.id!==id);
+      this.save();
+    },
+    listBetween(winStart, winEnd){
+      // [winStart, winEnd) に重なるイベントを返す
+      return this.events.filter(ev => ev.end>winStart && ev.start<winEnd);
+    }
+  };
+  NLStore.load();
+
+  // 外部から開始できる簡易API: StudyStart(ids)
+  window.StudyStart = function(ids){ StudyMgr.active=true; StudyMgr.pageIds = ids.slice(); StudyMgr.save(); StudyUI.update(); if(window.updateOverallStudyUI) updateOverallStudyUI(); setCompleteBtnText(); drawPlanner();
+    StudyUI.update(); setCompleteBtnText(); nlRebuildAll(); }; if(window.updateOverallStudyUI) updateOverallStudyUI(); if(window.__startOverallTicker) window.__startOverallTicker();
+
+
+  // ============== 時刻ヘルパ ==============
+  function now(){ return (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date())); }
+  function pad2(n){ return (n<10?"0":"")+n; }
+  function toHM(d){ return pad2(d.getHours())+":"+pad2(d.getMinutes()); }
+
+  // ============== 既存UIへの最小限バインド ==============
+  // 1) プランナー: 円形時計 (hour/day) を NLStore から描画
+  // 2) 数直線: NLStore を直接描画（基盤）
+  // 3) 追加ボタン類は NLStore へ追加 → 双方向同期不要
+
+  // DOM
+  const svg = document.getElementById('clock');
+  const ticks = document.getElementById('ticks');
+  const numbers = document.getElementById('numbers');
+  const arcs = document.getElementById('arcs');
+  const outerArcs1 = document.getElementById('outerArcs1');
+  const outerArcs2 = document.getElementById('outerArcs2');
+  const timerArcs = document.getElementById('timerArcs');
+  const hHand = document.getElementById('hHand');
+  const mHand = document.getElementById('mHand');
+  const sHand = document.getElementById('sHand');
+
+  // 軽量なユーティリティ(SVG)
+  function mk(tag){ return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+  function pol(r,a){ return {x:250+r*Math.cos(a), y:250+r*Math.sin(a)}; }
+  function rot(el,deg){ if(el) el.setAttribute('transform',`rotate(${deg} 250 250)`); }
+
+  function minToAng(min, total){
+    return (min%total)/total*2*Math.PI - Math.PI/2;
+  }
+  function arcPath(r,a1,a2,strokeWidth=24){
+    while(a2<a1) a2+=2*Math.PI;
+    const large = (a2-a1)>Math.PI?1:0;
+    const p1 = pol(r,a1), p2 = pol(r,a2);
+    return `M ${p1.x} ${p1.y} A ${r} ${r} 0 ${large} 1 ${p2.x} ${p2.y}`;
+  }
+
+
+  // === Planner control bindings & defaults ===
+  (function(){
+    const KEY = 'planner_prefs_v1';
+    function loadPrefs(){
+      try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; }
+    }
+    function savePrefs(p){ try{ localStorage.setItem(KEY, JSON.stringify(p)); }catch(e){} }
+    const els = {
+      mode: document.getElementById('mode'),
+      motion: document.getElementById('motion'),
+      shape: document.getElementById('shape'),
+      style: document.getElementById('style'),
+      clockDesign: document.getElementById('clockDesign')
+    };
+    const pref = loadPrefs();
+    // Apply defaults if not saved
+    if(!pref.mode) pref.mode = 'hour';
+    if(!pref.motion) pref.motion = 'tick';
+    if(!pref.shape) pref.shape = 'bar';
+    // Sync UI
+    if(els.mode) els.mode.value = pref.mode;
+    if(els.motion) els.motion.value = pref.motion;
+    if(els.shape) els.shape.value = pref.shape;
+    if(els.style && pref.style) els.style.value = pref.style;
+    if(els.clockDesign && pref.clockDesign) els.clockDesign.value = pref.clockDesign;
+    // Bind changes
+    Object.entries(els).forEach(([k,el])=>{
+      if(!el) return;
+      el.addEventListener('change', ()=>{
+        const p = loadPrefs();
+        p[k] = el.value;
+        savePrefs(p);
+        drawPlanner();
+      });
+    });
+    // initial draw (ensures new defaults take effect)
+    drawPlanner();
+  })();
+
+  // ============== プランナー描画（NLStore → 相対化） ==============
+  
+  // ===== 時計デザイン適用 =====
+  function applyClockDesign(design){
+    const root = document.documentElement.style;
+    const set = (k,v)=>root.setProperty(k, v);
+    const theme = design||'classic';
+    if(theme==='classic'){
+      set('--face', '#0b1724'); set('--ring','#2b4a6a');
+      set('--tickMajor','#9fb5c9'); set('--tickMinor','#6183a3'); set('--muted','#b7c7d6');
+      set('--handH','#e0e6ed'); set('--handM','#9cc3ff'); set('--handS','#ff6b6b');
+    }else if(theme==='minimal'){
+      set('--face', '#101013'); set('--ring','#282828');
+      set('--tickMajor','#cccccc'); set('--tickMinor','#4a4a4a'); set('--muted','#bdbdbd');
+      set('--handH','#eaeaea'); set('--handM','#eaeaea'); set('--handS','#eaeaea');
+    }else if(theme==='neon'){
+      set('--face', '#05060a'); set('--ring','#0f172a');
+      set('--tickMajor','#61dafb'); set('--tickMinor','#22d3ee'); set('--muted','#a5f3fc');
+      set('--handH','#22d3ee'); set('--handM','#a78bfa'); set('--handS','#f472b6');
+    }else if(theme==='frost'){
+      set('--face', 'rgba(255,255,255,0.06)'); set('--ring','rgba(255,255,255,0.25)');
+      set('--tickMajor','rgba(255,255,255,0.85)'); set('--tickMinor','rgba(255,255,255,0.45)'); set('--muted','rgba(255,255,255,0.9)');
+      set('--handH','rgba(255,255,255,0.95)'); set('--handM','rgba(255,255,255,0.95)'); set('--handS','rgba(255,255,255,0.95)');
+    }else if(theme==='blueprint'){
+      set('--face', '#081a33'); set('--ring','#93c5fd');
+      set('--tickMajor','#bfdbfe'); set('--tickMinor','#60a5fa'); set('--muted','#e0f2fe');
+      set('--handH','#e0f2fe'); set('--handM','#93c5fd'); set('--handS','#60a5fa');
+    }else if(theme==='highcontrast'){
+      set('--face', '#000'); set('--ring','#fff');
+      set('--tickMajor','#fff'); set('--tickMinor','#aaa'); set('--muted','#fff');
+      set('--handH','#fff'); set('--handM','#fff'); set('--handS','#ff3b3b');
+    }
+    // Optional: add class to SVG
+    const svg = document.getElementById('clock');
+    if(svg){ svg.setAttribute('data-design', theme); }
+  }
+function drawPlanner(){
+    const mode = $('mode') ? $('mode').value : 'day';
+    const cd = $('clockDesign') ? $('clockDesign').value : 'classic';
+    applyClockDesign(cd);
+ // 'hour' or 'day'
+    // 目盛り
+    ticks.innerHTML=''; numbers.innerHTML='';
+    for(let i=0;i<=60;i++){
+      const a = i/60*2*Math.PI - Math.PI/2;
+      const r1 = i%5===0 ? 205 : 220;
+      const r2 = i%5===0 ? 232 : 236;
+      const l = mk('line');
+      l.setAttribute('x1', pol(r1,a).x); l.setAttribute('y1', pol(r1,a).y);
+      l.setAttribute('x2', pol(r2,a).x); l.setAttribute('y2', pol(r2,a).y);
+      l.setAttribute('stroke', getComputedStyle(document.documentElement).getPropertyValue(i%5===0?'--tickMajor':'--tickMinor').trim());
+      l.setAttribute('stroke-width', i%5===0?2:1);
+      ticks.appendChild(l);
+    }
+    if(mode==='day'){
+      for(let i=1;i<=12;i++){
+        const a = i/12*2*Math.PI - Math.PI/2;
+        const p = pol(185,a);
+        const t = mk('text');
+        t.setAttribute('x',p.x); t.setAttribute('y',p.y);
+        t.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue('--muted').trim());
+        t.setAttribute('font-size','20'); t.setAttribute('font-weight','700');
+        t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','middle');
+        t.textContent = i;
+        numbers.appendChild(t);
+      }
+    }else{  for(let i=1;i<=12;i++){    const a = i/12*2*Math.PI - Math.PI/2; const p = pol(185,a); const t = mk('text');    t.setAttribute('x',p.x); t.setAttribute('y',p.y);    t.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue('--muted').trim());    t.setAttribute('font-size','20'); t.setAttribute('font-weight','700');    t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','middle');    t.textContent = i; numbers.appendChild(t); } }
+    // 針
+    const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+const motion = ($('motion') ? $('motion').value : 'smooth');
+// 秒針は1秒ごと、分針は1分ごとに動く(Tick) or スムーズ
+let sRaw = nowD.getSeconds() + nowD.getMilliseconds()/1000;
+let mRaw = nowD.getMinutes() + (motion==='smooth' ? sRaw/60 : 0);
+let hRaw = (nowD.getHours()%12) + (motion==='smooth' ? mRaw/60 : (nowD.getMinutes()/60));
+const s = (motion==='tick') ? Math.floor(sRaw) : sRaw;
+const m = (motion==='tick') ? Math.floor(nowD.getMinutes()) : mRaw;
+const h = hRaw;
+rot(sHand, s*6); rot(mHand, m*6); rot(hHand, h*30);
+hHand.style.opacity = (mode==='day')?1:0.2;
+
+    // イベント描画 (絶対→相対)
+    arcs.innerHTML=''; outerArcs1.innerHTML=''; outerArcs2.innerHTML=''; timerArcs.innerHTML='';
+    const nowMs = nowD.getTime();
+    let winStart, winEnd, totalMin;
+    if(mode==='hour'){
+      const base = new Date(nowD); base.setMinutes(0,0,0);
+      winStart = base.getTime();
+      winEnd   = winStart + 60*60000;
+      totalMin = 60;
+    }else{ // day(12h)
+      const half = (nowD.getHours()>=12?12:0);
+      const base = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), half, 0, 0, 0);
+      winStart = base.getTime();
+      winEnd   = winStart + 12*60*60000;
+      totalMin = 720;
+    }
+    
+const defsEl = svg.querySelector('defs');
+const styleSel = $('style') ? $('style').value : 'solid';
+const shapeSel = $('shape') ? $('shape').value : 'arc';
+
+function hexToRgb(hex){ hex = (hex||'#4da3ff').replace('#',''); return {r:parseInt(hex.substr(0,2),16), g:parseInt(hex.substr(2,2),16), b:parseInt(hex.substr(4,2),16)}; }
+function rgba({r,g,b},a){ return `rgba(${r},${g},${b},${a})`; }
+function shade({r,g,b}, k){ const f = (v)=>Math.round(Math.max(0, Math.min(50000,v*(1+k)))); return {r:f(r), g:f(g), b:f(b)}; }
+function ensureLinearGrad(id, stops){
+  let g = defsEl.querySelector('#'+id);
+  if(!g){
+    g = document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
+    g.setAttribute('id', id);
+    g.setAttribute('x1','0%'); g.setAttribute('y1','0%');
+    g.setAttribute('x2','0%'); g.setAttribute('y2','100%');
+    defsEl.appendChild(g);
+  }
+  while(g.firstChild) g.removeChild(g.firstChild);
+  stops.forEach(([off, col, op])=>{
+    const s = document.createElementNS('http://www.w3.org/2000/svg','stop');
+    s.setAttribute('offset', off);
+    s.setAttribute('stop-color', col);
+    if(op!=null) s.setAttribute('stop-opacity', op);
+    g.appendChild(s);
+  });
+  return `url(#${id})`;
+}
+function sectorPath(cx,cy,rOuter,rInner,a1,a2){
+  while(a2<a1) a2+=Math.PI*2;
+  const large = (a2-a1)>Math.PI ? 1 : 0;
+  const p1o={x:cx+rOuter*Math.cos(a1), y:cy+rOuter*Math.sin(a1)};
+  const p2o={x:cx+rOuter*Math.cos(a2), y:cy+rOuter*Math.sin(a2)};
+  const p1i={x:cx+rInner*Math.cos(a2), y:cy+rInner*Math.sin(a2)};
+  const p2i={x:cx+rInner*Math.cos(a1), y:cy+rInner*Math.sin(a1)};
+  if(rInner<=0){
+    return `M ${cx} ${cy} L ${p1o.x} ${p1o.y} A ${rOuter} ${rOuter} 0 ${large} 1 ${p2o.x} ${p2o.y} Z`;
+  }else{
+    return `M ${p1o.x} ${p1o.y} A ${rOuter} ${rOuter} 0 ${large} 1 ${p2o.x} ${p2o.y} L ${p1i.x} ${p1i.y} A ${rInner} ${rInner} 0 ${large} 0 ${p2i.x} ${p2i.y} Z`;
+  }
+}
+function drawStyledArc(g, a1, a2, color){
+  const rgb = hexToRgb(color||'#4da3ff');
+  const baseCol = rgba(rgb, 0.95);
+  const r = 200, w = 24;
+  if(shapeSel==='arc'){
+    const base = mk('path');
+    base.setAttribute('d', arcPath(r, a1, a2, w));
+    base.setAttribute('fill','none');
+    base.setAttribute('stroke-linecap','round');
+    if(styleSel==='gradient'){
+      const gId = 'grad-' + Math.random().toString(36).slice(2);
+      const c1 = `rgba(${shade(rgb,0.25).r},${shade(rgb,0.25).g},${shade(rgb,0.25).b},1)`;
+      const c2 = baseCol;
+      base.setAttribute('stroke', ensureLinearGrad(gId, [['0%', c1, 1], ['100%', c2, 1]]));
+    }else if(styleSel==='rainbow'){
+      const gId = 'rainbow-' + Math.random().toString(36).slice(2);
+      ensureLinearGrad(gId, [
+        ['0%','#ff6b6b',1],['20%','#ffd43b',1],['40%','#51cf66',1],
+        ['60%','#4dabf7',1],['80%','#845ef7',1],['100%','#f783ac',1]
+      ]);
+      base.setAttribute('stroke', `url(#${gId})`);
+    }else{
+      base.setAttribute('stroke', baseCol);
+    }
+    base.setAttribute('stroke-width', w);
+    // visibility outlines
+    const outHi = mk('path'); outHi.setAttribute('d', arcPath(r,a1,a2,w+3)); outHi.setAttribute('fill','none'); outHi.setAttribute('stroke','rgba(255,255,255,0.22)'); outHi.setAttribute('stroke-linecap','round'); outHi.setAttribute('stroke-width',3);
+    const outLo = mk('path'); outLo.setAttribute('d', arcPath(r,a1,a2,Math.max(2,w-2))); outLo.setAttribute('fill','none'); outLo.setAttribute('stroke','rgba(0,0,0,0.18)'); outLo.setAttribute('stroke-linecap','round'); outLo.setAttribute('stroke-width',2);
+    g.appendChild(outHi);
+    g.appendChild(base);
+    g.appendChild(outLo);
+
+    if(styleSel==='glass'){
+      const hl = mk('path');
+      hl.setAttribute('d', arcPath(r, a1, a2, Math.max(8,w*0.52)));
+      hl.setAttribute('fill','none');
+      hl.setAttribute('stroke','url(#glassGrad)');
+      hl.setAttribute('stroke-opacity','0.9');
+      hl.setAttribute('stroke-linecap','round');
+      hl.setAttribute('stroke-width', Math.max(8,w*0.52));
+      g.appendChild(hl);
+      const edge = mk('path');
+      edge.setAttribute('d', arcPath(r, a1, a2, w+2));
+      edge.setAttribute('fill','none');
+      edge.setAttribute('stroke', `rgba(${shade(rgb,-0.5).r},${shade(rgb,-0.5).g},${shade(rgb,-0.5).b},0.25)`);
+      edge.setAttribute('stroke-linecap','round');
+      edge.setAttribute('stroke-width', 2);
+      g.appendChild(edge);
+    }
+    if(styleSel==='metal'){
+      const top = mk('path');
+      top.setAttribute('d', arcPath(r, a1, a2, w*0.55));
+      top.setAttribute('fill','none');
+      top.setAttribute('stroke', `rgba(${shade(rgb,0.35).r},${shade(rgb,0.35).g},${shade(rgb,0.35).b},0.9)`);
+      top.setAttribute('stroke-linecap','round');
+      top.setAttribute('stroke-width', w*0.55);
+      g.appendChild(top);
+      const bot = mk('path');
+      bot.setAttribute('d', arcPath(r, a1, a2, w));
+      bot.setAttribute('fill','none');
+      bot.setAttribute('stroke', `rgba(${shade(rgb,-0.25).r},${shade(rgb,-0.25).g},${shade(rgb,-0.25).b},0.9)`);
+      bot.setAttribute('stroke-linecap','round');
+      bot.setAttribute('stroke-width', 2);
+      g.appendChild(bot);
+    }
+    if(styleSel==='glow'){ g.setAttribute('filter','url(#glow)'); }
+  }else if(shapeSel==='wedge'){
+    const p = mk('path');
+    p.setAttribute('d', sectorPath(250,250, 204, 0, a1, a2));
+    p.setAttribute('fill', baseCol);
+    if(styleSel==='glass'){
+      const gId = 'wglass-' + Math.random().toString(36).slice(2);
+      p.setAttribute('fill', ensureLinearGrad(gId, [['0%','rgba(255,255,255,0.7)',1],['20%', 'rgba(255,255,255,0.35)',1],['100%', baseCol,1]]));
+      p.setAttribute('stroke', `rgba(${shade(rgb,-0.4).r},${shade(rgb,-0.4).g},${shade(rgb,-0.4).b},0.3)`);
+      p.setAttribute('stroke-width','1.5');
+    }else if(styleSel==='gradient'){
+      const gId = 'wgrad-' + Math.random().toString(36).slice(2);
+      const c1 = `rgba(${shade(rgb,0.25).r},${shade(rgb,0.25).g},${shade(rgb,0.25).b},1)`;
+      const c2 = baseCol;
+      p.setAttribute('fill', ensureLinearGrad(gId, [['0%',c1,1],['100%',c2,1]]));
+    }else if(styleSel==='rainbow'){
+      const gId = 'wrain-' + Math.random().toString(36).slice(2);
+      p.setAttribute('fill', ensureLinearGrad(gId, [
+        ['0%','#ff6b6b',1],['20%','#ffd43b',1],['40%','#51cf66',1],
+        ['60%','#4dabf7',1],['80%','#845ef7',1],['100%','#f783ac',1]
+      ]));
+    }else if(styleSel==='metal'){
+      const gId = 'wmetal-' + Math.random().toString(36).slice(2);
+      p.setAttribute('fill', ensureLinearGrad(gId, [
+        ['0%','rgba(255,255,255,0.25)',1],['20%', baseCol,1],
+        ['80%', `rgba(${shade(rgb,-0.25).r},${shade(rgb,-0.25).g},${shade(rgb,-0.25).b},0.95)`,1],['100%','rgba(255,255,255,0.2)',1]
+      ]));
+    }
+    arcs.appendChild(p);
+    if(styleSel==='glow'){ p.setAttribute('filter','url(#glow)'); }
+  }else if(shapeSel==='bar'){
+    const p = mk('path');
+    p.setAttribute('d', sectorPath(250,250, 212, 188, a1, a2));
+    p.setAttribute('fill', baseCol);
+    if(styleSel==='glass'){
+      const gId = 'bglass-' + Math.random().toString(36).slice(2);
+      p.setAttribute('fill', ensureLinearGrad(gId, [['0%','rgba(255,255,255,0.7)',1],['20%','rgba(255,255,255,0.35)',1],['100%', baseCol,1]]));
+      p.setAttribute('stroke', `rgba(${shade(rgb,-0.4).r},${shade(rgb,-0.4).g},${shade(rgb,-0.4).b},0.35)`);
+      p.setAttribute('stroke-width','1.5');
+    }else if(styleSel==='gradient'){
+      const gId = 'bgrad-' + Math.random().toString(36).slice(2);
+      const c1 = `rgba(${shade(rgb,0.25).r},${shade(rgb,0.25).g},${shade(rgb,0.25).b},1)`;
+      const c2 = baseCol;
+      p.setAttribute('fill', ensureLinearGrad(gId, [['0%',c1,1],['100%',c2,1]]));
+    }else if(styleSel==='rainbow'){
+      const gId = 'brain-' + Math.random().toString(36).slice(2);
+      p.setAttribute('fill', ensureLinearGrad(gId, [
+        ['0%','#ff6b6b',1],['20%','#ffd43b',1],['40%','#51cf66',1],
+        ['60%','#4dabf7',1],['80%','#845ef7',1],['100%','#f783ac',1]
+      ]));
+    }else if(styleSel==='metal'){
+      const gId = 'bmetal-' + Math.random().toString(36).slice(2);
+      p.setAttribute('fill', ensureLinearGrad(gId, [
+        ['0%','rgba(255,255,255,0.25)',1],['20%', baseCol,1],
+        ['80%', `rgba(${shade(rgb,-0.25).r},${shade(rgb,-0.25).g},${shade(rgb,-0.25).b},0.95)`,1],['100%','rgba(255,255,255,0.2)',1]
+      ]));
+    }
+    arcs.appendChild(p);
+    if(styleSel==='glow'){ p.setAttribute('filter','url(#glow)'); }
+  }else if(shapeSel==='triangle'){
+    const mid = (a1+a2)/2;
+    const len = 150, base = 28;
+    const tip = {x:250+len*Math.cos(mid), y:250+len*Math.sin(mid)};
+    const left = {x:250+base*Math.cos(mid+Math.PI/2), y:250+base*Math.sin(mid+Math.PI/2)};
+    const right= {x:250+base*Math.cos(mid-Math.PI/2), y:250+base*Math.sin(mid-Math.PI/2)};
+    const poly = mk('polygon');
+    poly.setAttribute('points', `${left.x},${left.y} ${right.x},${right.y} ${tip.x},${tip.y}`);
+    poly.setAttribute('fill', baseCol);
+    if(styleSel==='glass'){
+      const gId = 'tglass-' + Math.random().toString(36).slice(2);
+      poly.setAttribute('fill', ensureLinearGrad(gId, [['0%','rgba(255,255,255,0.8)',1],['100%', baseCol,1]]));
+      poly.setAttribute('stroke', `rgba(${shade(rgb,-0.35).r},${shade(rgb,-0.35).g},${shade(rgb,-0.35).b},0.35)`);
+      poly.setAttribute('stroke-width','1.2');
+    }
+    if(styleSel==='glow'){ poly.setAttribute('filter','url(#glow)'); }
+    arcs.appendChild(poly);
+  }
+}
+
+const list = NLStore.listBetween(winStart, winEnd);
+list.forEach(ev=>{
+  const sMs = Math.max(ev.start, winStart);
+  const eMs = Math.min(ev.end,   winEnd);
+  if(eMs<=sMs) return;
+  const relS = (sMs - winStart)/60000;
+  const relE = (eMs - winStart)/60000;
+  const a1 = minToAng(relS, totalMin);
+  const a2 = minToAng(relE, totalMin);
+  const gArc = mk('g');
+  drawStyledArc(gArc, a1, a2, ev.color||'#4da3ff');
+  arcs.appendChild(gArc);
+});
+  }
+
+  // ============== 数直線描画（基盤） ==============
+
+  // ===== Tick (メモリ) style settings =====
+  const nlTickStyle = {
+    minorLen: 28, minorThick: 1, minorColor: '#9fb5c9',
+    majorLen: 40, majorThick: 3, majorColor: '#285078',
+    glow: 6, shadow: 6, shape: 'line'
+  };
+  function setTickStyleFromUI(){
+    const g = id=>document.getElementById(id);
+    const mLen = g('tickMinorLen'), mTh = g('tickMinorThick'), mCol = g('tickMinorColor');
+    const MLen = g('tickMajorLen'), MTh = g('tickMajorThick'), MCol = g('tickMajorColor');
+    const gl = g('tickGlow'), sh = g('tickShadow'), shp = g('tickShape');
+    if(mLen){ nlTickStyle.minorLen = parseInt(mLen.value)||28; const v=g('tickMinorLenVal'); if(v) v.textContent = nlTickStyle.minorLen+'%'; }
+    if(mTh){ nlTickStyle.minorThick = parseInt(mTh.value)||1; const v=g('tickMinorThickVal'); if(v) v.textContent = nlTickStyle.minorThick+'px'; }
+    if(mCol){ nlTickStyle.minorColor = mCol.value||'#9fb5c9'; }
+    if(MLen){ nlTickStyle.majorLen = parseInt(MLen.value)||40; const v=g('tickMajorLenVal'); if(v) v.textContent = nlTickStyle.majorLen+'%'; }
+    if(MTh){ nlTickStyle.majorThick = parseInt(MTh.value)||3; const v=g('tickMajorThickVal'); if(v) v.textContent = nlTickStyle.majorThick+'px'; }
+    if(MCol){ nlTickStyle.majorColor = MCol.value||'#285078'; }
+    if(gl){ nlTickStyle.glow = parseInt(gl.value)||0; const v=g('tickGlowVal'); if(v) v.textContent = nlTickStyle.glow; }
+    if(sh){ nlTickStyle.shadow = parseInt(sh.value)||0; const v=g('tickShadowVal'); if(v) v.textContent = nlTickStyle.shadow; }
+    if(shp){ nlTickStyle.shape = shp.value; }
+  }
+  function applyTickStyleToRow(row){
+    const ticksWrap = row.querySelector('.nl-ticks');
+    if(!ticksWrap) return;
+    // minor
+    ticksWrap.querySelectorAll('.nl-tick').forEach(el=>{
+      const isMajor = el.classList.contains('major');
+      const len = (isMajor? nlTickStyle.majorLen : nlTickStyle.minorLen);
+      const thick = (isMajor? nlTickStyle.majorThick : nlTickStyle.minorThick);
+      const color = (isMajor? nlTickStyle.majorColor : nlTickStyle.minorColor);
+      // baseline around center: make top so that it crosses center line and extends upward
+      const center = 50;
+      const top = center - (len*0.55); // slightly more above to keep readable when bars are below
+      el.style.top = top + '%';
+      el.style.height = len + '%';
+      el.style.width = thick + 'px';
+      el.style.background = color;
+      // effects
+      const glow = nlTickStyle.glow;
+      const shadow = nlTickStyle.shadow;
+      const glowCol = color + (color.length===7 ? '80' : '');
+      el.style.filter = `drop-shadow(0 0 ${glow}px ${color})`;
+      el.style.boxShadow = shadow>0 ? `0 1px ${shadow}px rgba(0,0,0,0.35)` : 'none';
+      // shape
+      el.style.borderRadius = '0';
+      el.style.transform = 'translateX(-50%)';
+      el.style.clipPath = 'none';
+      if(nlTickStyle.shape==='rounded'){
+        el.style.borderRadius = (thick/2)+'px';
+      }else if(nlTickStyle.shape==='diamond'){
+        // make it a square rotated 45deg; set width=height in px domain via CSS variable
+        el.style.height = (thick*2)+'px';
+        el.style.width  = (thick*2)+'px';
+        el.style.top = (center - (thick*2)/2/ (row.querySelector('.nl-scale').getBoundingClientRect().height/100)) + '%';
+        el.style.background = color;
+        el.style.transform = 'translateX(-50%) rotate(45deg)';
+      }else if(nlTickStyle.shape==='dot'){
+        const size = Math.max(4, thick*3);
+        el.style.height = size+'px';
+        el.style.width  = size+'px';
+        el.style.top = (center - size/2 / (row.querySelector('.nl-scale').getBoundingClientRect().height/100)) + '%';
+        el.style.borderRadius = '999px';
+      }
+    });
+  }
+  function applyTickStyleAll(){
+    document.querySelectorAll('.nl-row').forEach(row=>applyTickStyleToRow(row));
+  }
+
+  // バー見た目設定（グローバル）
+  const nlBarStyle = { opacity: 0.8, theme: 'glass', shape: 'pill' };
+  function setBarStyleFromUI(){
+    const o = document.getElementById('nlOpacity');
+    const t = document.getElementById('nlTheme');
+    const s = document.getElementById('nlShape');
+    if(o){ nlBarStyle.opacity = Math.max(0.2, Math.min(50000,parseFloat(o.value)||0.8)); const v=document.getElementById('nlOpacityVal'); if(v) v.textContent = nlBarStyle.opacity.toFixed(2); }
+    if(t){ nlBarStyle.theme = t.value; }
+    if(s){ nlBarStyle.shape = s.value; }
+  }
+  function hexToRgb(hex){ hex = (hex||'#7dd3fc').replace('#',''); return {r:parseInt(hex.substr(0,2),16), g:parseInt(hex.substr(2,2),16), b:parseInt(hex.substr(4,2),16)}; }
+  function applyBarStyle(el, color){
+    const {r,g,b} = hexToRgb(color||'#7dd3fc');
+    const a = nlBarStyle.opacity;
+    const base = `rgba(${r},${g},${b},${a})`;
+    const light = `rgba(255,255,255,${Math.min(0.65, a*0.8)})`;
+    const dark = `rgba(0,0,0,${Math.min(0.35, (1-a)*0.8+0.15)})`;
+    el.style.backdropFilter = '';
+    el.style.border = 'none';
+    el.style.boxShadow = 'none';
+    el.style.background = base;
+    el.style.outline = 'none';
+    switch(nlBarStyle.theme){
+      case 'glass':
+        el.style.background = `linear-gradient(180deg, ${light} 0%, rgba(255,255,255,0.35) 15%, ${base} 55%, rgba(0,0,0,0.18) 100%)`;
+        el.style.backdropFilter = 'saturate(140%) blur(6px)';
+        el.style.border = '1px solid rgba(255,255,255,0.4)';
+        el.style.boxShadow = 'inset 0 1px 2px rgba(255,255,255,0.8), inset 0 -1px 2px rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.25)';
+        break;
+      case 'metal':
+        el.style.background = `linear-gradient(90deg, rgba(255,255,255,${Math.min(0.20,a)}) 0%, ${base} 12%, rgba(0,0,0,${Math.min(0.18,1-a)}) 50%, ${base} 88%, rgba(255,255,255,${Math.min(0.20,a)}) 100%)`;
+        el.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.25)';
+        el.style.border = '1px solid rgba(255,255,255,0.25)';
+        break;
+      case 'gradient':
+        el.style.background = `linear-gradient(90deg, ${base} 0%, rgba(${r},${g},${b},${Math.max(0.25,a-0.15)}) 100%)`;
+        el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+        break;
+      case 'neon':
+        el.style.background = base;
+        el.style.boxShadow = `0 0 12px rgba(${r},${g},${b},${Math.min(0.9, a)}), 0 0 24px rgba(${r},${g},${b},${Math.min(0.6, a)})`;
+        break;
+      case 'outline':
+        el.style.background = 'transparent';
+        el.style.border = `2px solid ${base}`;
+        break;
+      case 'solid':
+      default:
+        el.style.background = base;
+        el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
+        break;
+    }
+    // shape
+    switch(nlBarStyle.shape){
+      case 'rect': el.style.borderRadius='4px'; break;
+      case 'underline': el.style.borderRadius='3px'; el.style.height='8px'; el.style.top='60%'; break;
+      case 'bevel': el.style.borderRadius='10px 4px 10px 4px'; break;
+      case 'pill':
+      default: el.style.borderRadius='999px'; break;
+    }
+  }
+
+  function nlPad(n){ return (n<10?'0':'')+n; }
+  function nlHexToRgba(hex,a){
+    if(!hex) return `rgba(125,211,252,${a})`;
+    const m = hex.replace('#','');
+    const r = parseInt(m.substring(0,2),16);
+    const g = parseInt(m.substring(2,4),16);
+    const b = parseInt(m.substring(4,6),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+  function nlRebuildAll(){
+  const cont = $('nlRows'); if(!cont) return;
+  cont.innerHTML='';
+  const count = parseInt(($('nlRowCount')||{value:2}).value,10);
+  const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+  const base = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), nowD.getHours(), 0, 0, 0);
+  for(let i=0;i<count;i++){
+    const slotStart = new Date(base.getTime() + i*60*60000);
+    nlBuildRow(slotStart, i===0);
+  }
+  applyTickStyleAll();
+
+  // === Responsive: keep bars & hands aligned on resize ===
+  (function(){
+    const root = document.getElementById('nlRows');
+    if(!root || typeof ResizeObserver==='undefined') return;
+    const ro = new ResizeObserver(()=>{
+      const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+      document.querySelectorAll('.nl-row').forEach(row=>{
+        // re-render bars
+        nlRenderBarsForHour(row);
+        // update hands if current
+        const isCurrent = row.classList.contains('current');
+        const sHand = row.querySelector('.nl-hand.s');
+        const mHand = row.querySelector('.nl-hand.m');
+        if(isCurrent){
+          if(sHand) sHand.style.left = (nowD.getSeconds()/60*100)+'%';
+          if(mHand) mHand.style.left = (nowD.getMinutes()/60*100)+'%';
+        }
+      });
+      nlUpdateETA && nlUpdateETA();
+    });
+    ro.observe(root);
+  })();
+
+
+  // === ETA seconds toggle ===
+  const NL_SEC_KEY = "nl_eta_show_seconds";
+  function nlLoadShowSeconds(){ try{ return localStorage.getItem(NL_SEC_KEY)==='1'; }catch(e){ return false; } }
+  function nlSaveShowSeconds(v){ try{ localStorage.setItem(NL_SEC_KEY, v?'1':'0'); }catch(e){} }
+  (function(){
+    const cb = document.getElementById('nlShowSeconds');
+    if(cb){ cb.checked = nlLoadShowSeconds(); cb.onchange = ()=>nlSaveShowSeconds(cb.checked); }
+  })();
+
+
+  // ===== Fullscreen handling =====
+  function nlEnterFullscreen(){
+    const cont = document.createElement('div'); cont.className='nl-fullscreen'; cont.id='nlFS';
+    const close = document.createElement('button'); close.className='nl-fs-close'; close.textContent='閉じる';
+    close.onclick = ()=>{ const fs=document.getElementById('nlFS'); if(fs) fs.remove(); nlRebuildAll(); };
+    cont.appendChild(close);
+    document.body.appendChild(cont);
+    // Build a fresh current-hour row inside fullscreen
+    const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+    const base = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), nowD.getHours(), 0, 0, 0);
+    const row = nlBuildRow(base, true);
+    cont.appendChild(row);
+  }
+  (function(){ const btn=document.getElementById('nlFullscreenBtn'); if(btn) btn.onclick=nlEnterFullscreen; })();
+
+}
+  function nlBuildRow(startDate, isCurrent){
+  const wrap = $('nlRows'); if(!wrap) return;
+  const row = document.createElement('div'); row.className='nl-row';
+  if(isCurrent){ row.classList.add('current'); }
+  row.dataset.startTs = startDate.getTime();
+  const hour = startDate.getHours();
+  const badge = document.createElement('div'); badge.className='nl-hourBadge'; badge.textContent = `${hour}時`;
+    const rail  = document.createElement('div'); rail.className='nl-rail';
+    const scale = document.createElement('div'); scale.className='nl-scale';
+    const track = document.createElement('div'); track.className='nl-track';
+    const ticks = document.createElement('div'); ticks.className='nl-ticks';
+    for(let i=0;i<=60;i++){
+      const t = document.createElement('div'); t.className='nl-tick'+(i%5===0?' major':''); ticks.appendChild(t);
+      if(i%5===0){ const lab = document.createElement('div'); lab.className='nl-label'; lab.textContent=i; ticks.appendChild(lab); }
+    }
+    const mHand=document.createElement('div'); mHand.className='nl-hand m';
+    const sHand=document.createElement('div'); sHand.className='nl-hand s';
+    const bars=document.createElement('div'); bars.className='nl-bars';
+    // overlay bars inside scale
+    scale.style.position = 'relative';
+    bars.style.position = 'absolute';
+    bars.style.left = '0';
+    bars.style.top = '0';
+    bars.style.width = '100%';
+    bars.style.height = '100%';
+    bars.style.padding = '0';
+    bars.style.border = '0';
+    bars.style.boxSizing = 'border-box';
+    const cap=document.createElement('div'); cap.className='nl-cap'; cap.innerHTML='<span>0</span><span></span>';
+
+    scale.appendChild(track);
+scale.appendChild(ticks);
+scale.appendChild(mHand);
+scale.appendChild(sHand);
+scale.appendChild(bars);
+rail.appendChild(scale);
+rail.appendChild(cap);
+    row.appendChild(badge); row.appendChild(rail);
+    wrap.appendChild(row);
+
+    // レイアウト
+    const rect = scale.getBoundingClientRect(); const w = rect.width||600;
+    // 0〜60（61本）: %配置
+    ticks.querySelectorAll('.nl-tick').forEach((el, idx)=>{ el.style.left = (idx/60*100)+'%'; });
+    ticks.querySelectorAll('.nl-label').forEach((el, idx)=>{ el.style.left = ((idx*5)/60*100)+'%'; });
+// 針
+    // bars layer width = scale width (to align coordinate origins)
+    // responsive: width via left/right; no fixed px width
+const eta = document.createElement('div'); eta.className='nl-eta'; eta.textContent='--';
+    scale.appendChild(eta);
+const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+    const min = isCurrent ? nowD.getMinutes() : 0;
+    const sec = isCurrent ? nowD.getSeconds() : 0;
+    mHand.style.left = (min/60*100)+'%'; sHand.style.left=(sec/60*100)+'%';
+    // バー
+    nlRenderBarsForHour(row);
+    return row;
+  }
+  function nlPosForMinute(row, minute){
+    const rect = row.querySelector('.nl-scale').getBoundingClientRect();
+    return (minute/60)*(rect.width||600);
+  }
+  function nlRenderBarsForHour(row){
+  const barsEl = row.querySelector('.nl-bars'); barsEl.innerHTML='';
+  const startTs = Number(row.dataset.startTs||0);
+  const hourStart = new Date(startTs);
+  const hourEnd   = new Date(startTs + 60*60000);
+  const list = NLStore.listBetween(hourStart.getTime(), hourEnd.getTime());
+    list.forEach(ev=>{
+      const os = new Date(Math.max(ev.start, hourStart.getTime()));
+      const oe = new Date(Math.min(ev.end,   hourEnd.getTime()));
+      if(oe<=os) return;
+      const startMin = (os - hourStart)/60000;
+      const endMin   = (oe - hourStart)/60000;
+      const leftPct  = (clamp(startMin,0,60)/60)*100;
+const rightPct = (clamp(endMin,0,60)/60)*100;
+const widthPct = Math.max(0.5, rightPct-leftPct);
+const bar = document.createElement('div'); bar.className='nl-bar';
+bar.style.left  = leftPct + '%';
+bar.style.width = widthPct + '%';
+      bar.style.height = '22px';
+      bar.style.top = '56%';
+      bar.style.transform = 'translateY(-50%)';
+      bar.style.borderRadius = '6px';
+      bar.style.zIndex = '1';
+      bar.style.background = nlHexToRgba(ev.color||'#7dd3fc', 0.68);
+      bar.style.borderColor = nlHexToRgba('#ffffff', 0.35);
+      bar.title = `${ev.title}（${pad2(os.getHours())}:${pad2(os.getMinutes())}〜${pad2(oe.getHours())}:${pad2(oe.getMinutes())}）`;
+      bar.textContent = ev.title;
+      barsEl.appendChild(bar);
+      applyBarStyle(bar, ev.color||'#7dd3fc');
+    });
+  }
+  function nlStepMinute(){
+    const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+    document.querySelectorAll('.nl-row').forEach((row,i)=>{
+      const scale = row.querySelector('.nl-scale').getBoundingClientRect();
+      const w = scale.width||600;
+      if(i===0){
+        const mHand = row.querySelector('.nl-hand.m');
+        const sHand = row.querySelector('.nl-hand.s');
+        mHand.style.left = (nowD.getMinutes()/60*100)+'%';
+        sHand.style.left = (nowD.getSeconds()/60*100)+'%';
+      }
+      nlRenderBarsForHour(row);
+    });
+  }
+  function nlStartTimers(){
+    // 分境界に同期
+    const alignMin = ()=>{
+      const n = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date())); const ms = (60-n.getSeconds())*1000 - n.getMilliseconds();
+      setTimeout(()=>{ nlStepMinute(); setInterval(nlStepMinute, 60000); }, ms);
+    };
+    alignMin();
+    // 1秒針更新
+    setInterval(()=>{
+      const rows = Array.from(document.querySelectorAll('.nl-row'));
+  rows.forEach(r=>{ r.__nlStack=0; r.__nlOuterStack=0; });
+      if(!rows.length) return;
+      const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+      rows.forEach(row=>{
+        const isCurrent = row.classList.contains('current') || ( ()=>{
+          const ts = parseInt(row.dataset.startTs||'0',10);
+          const d = new Date(ts);
+          return d.getHours()===nowD.getHours() && d.getDate()===nowD.getDate() && d.getMonth()===nowD.getMonth() && d.getFullYear()===nowD.getFullYear();
+        })();
+        const sHand = row.querySelector('.nl-hand.s');
+        const mHand = row.querySelector('.nl-hand.m');
+        if(isCurrent){
+          if(sHand) sHand.style.left = (nowD.getSeconds()/60*100)+'%';
+          if(mHand) mHand.style.left = (nowD.getMinutes()/60*100)+'%';
+        }else{
+          if(sHand) sHand.style.left = '0%';
+          if(mHand) mHand.style.left = '0%';
+        }
+      });
+    }, 1000);
+    // 時の境目で行を再生成
+    setInterval(()=>{
+      const n=(window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+      if(n.getMinutes()===0 && n.getSeconds()<2){ nlRebuildAll(); }
+    }, 1000);
+  }
+
+  
+  
+  
+  function nlUpdateETA(secondAligned){
+    const now = secondAligned ? (Date.now() - (Date.now()%1000)) : Date.now();
+    const showSec = (function(){ try{ return localStorage.getItem('nl_eta_show_seconds')==='1'; }catch(e){ return false; } })();
+    document.querySelectorAll('.nl-row').forEach(row=>{
+      const hourStart = parseInt(row.dataset.startTs||'0',10);
+      const hourEnd = hourStart + 60*60000;
+      const etaEl = row.querySelector('.nl-eta'); if(!etaEl) return;
+      const evs = (NLStore.events||[]).filter(ev=> ev.start < ev.end && ev.start < hourEnd && ev.end > hourStart);
+      let remainMs = null, curTitle = null;
+      for(const ev of evs){
+        if(now>=ev.start && now<ev.end){ remainMs = Math.max(0, ev.end - now); curTitle = (ev.title||'予定').toString(); break; }
+      }
+      if(remainMs===null){ etaEl.style.display='none'; }
+      else {
+        etaEl.style.display='block';
+        if(showSec){
+          const totalSec = Math.max(0, Math.floor(remainMs/1000));
+          const mm = Math.floor(totalSec/60);
+          const ss = totalSec%60;
+          const ssPad = String(ss).padStart(2,'0');
+          etaEl.textContent = mm>0 ? `${curTitle} (${mm}分${ssPad}秒)` : `${curTitle} (${ssPad}秒)`;
+        }else{
+          const mins = Math.max(0, Math.ceil(remainMs/60000));
+          etaEl.textContent = `${curTitle} (${mins}分)`;
+        }
+      }
+    });
+  }
+  // ============== 入力 → NLStore 追加 ==============
+  function nlAddFromInputs(){
+    const title = ($('nlTitle')||{value:''}).value.trim() || "予定";
+    const sVal  = ($('nlStart')||{value:''}).value;
+    const eVal  = ($('nlEnd')  ||{value:''}).value;
+    const color = ($('nlColor')||{value:'#7dd3fc'}).value;
+    const msg = $('nlMsg'); if(msg) msg.textContent='';
+    if(!sVal || !eVal){ if(msg) msg.textContent='開始と終了を入力してください。'; return; }
+    const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+    const [sh,sm] = sVal.split(':').map(Number);
+    const [eh,em] = eVal.split(':').map(Number);
+    let s = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), sh, sm||0, 0, 0);
+    let e = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), eh, em||0, 0, 0);
+    if(e <= s){ e = new Date(e.getTime()+24*60*60000); } // 翌日跨ぎに対応
+    NLStore.addAbs(s,e,title,color,"normal");
+    NLStore.save();
+    // 再描画
+    drawPlanner();
+    nlRebuildAll();
+    // 予定一覧も更新
+    renderList();
+  }
+
+  // ============== 既存「追加」UIも NLStore に接続 ==============
+  function addEventFromPlannerInputs(){
+    const mode = $('mode') ? $('mode').value : 'day';
+    const s = $('start').value.split(':').map(Number);
+    const e = $('end').value.split(':').map(Number);
+    const label = ($('label')||{value:''}).value.trim() || '予定';
+    const color = ($('color')||{value:'#4da3ff'}).value;
+    if(s.length<2||e.length<2) { alert('時間を入力'); return; }
+    const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+    let start, end;
+    if(mode==='hour'){
+      // 現在の時間をベースに「分」だけ反映
+      const base = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), nowD.getHours(), 0, 0, 0);
+      start = new Date(base.getTime() + (s[1]%60)*60000);
+      end   = new Date(base.getTime() + (e[1]%60)*60000);
+      if(end<=start){ end = new Date(end.getTime()+60*60000); }
+    }else{
+      // 12時間面: 時分をそのまま絶対化（現在の半日ブロックに投影）
+      const half = (nowD.getHours()>=12?12:0);
+      start = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), half + (s[0]%12), s[1]%60, 0, 0);
+      end   = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), half + (e[0]%12), e[1]%60, 0, 0);
+      if(end<=start){ end = new Date(end.getTime()+12*60*60000); }
+    }
+    NLStore.addAbs(start,end,label,color,"normal");
+    NLStore.save();
+    ($('label')||{}).value='';
+    drawPlanner();
+    nlRebuildAll();
+    renderList();
+  }
+
+  // ============== 予定一覧（削除だけ提供） ==============
+  function renderList(){
+    const list = $('list'); if(!list) return;
+    list.innerHTML='';
+    // 現在表示中のウィンドウ基準でソート
+    const evs = NLStore.events.slice().sort((a,b)=>a.start-b.start);
+    evs.forEach(ev=>{
+      const div = document.createElement('div'); div.className='item';
+      const left = document.createElement('div'); left.style.display='flex'; left.style.gap='8px'; left.style.alignItems='center';
+      const badge = document.createElement('div'); badge.className='badge'; badge.style.background=ev.color;
+      const txt = document.createElement('div'); txt.textContent = ev.title;
+      left.appendChild(badge); left.appendChild(txt);
+      const right = document.createElement('div'); right.style.display='flex'; right.style.gap='8px'; right.style.alignItems='center';
+      const time = document.createElement('span'); time.className='tiny';
+      const s = new Date(ev.start), e = new Date(ev.end);
+      time.textContent = `${toHM(s)} – ${toHM(e)}`;
+      const del = document.createElement('button'); del.className='danger'; del.textContent='削除';
+      del.style.padding='4px 8px'; del.style.fontSize='12px';
+      del.onclick = ()=>{ NLStore.removeById(ev.id); renderList(); drawPlanner(); nlRebuildAll(); };
+      right.appendChild(time); right.appendChild(del);
+      div.appendChild(left); div.appendChild(right);
+      list.appendChild(div);
+    });
+  }
+
+  // ============== 勉強管理（安定版の簡潔ロジック） ==============
+  const study = { total:20, perPage:5, completed:[] };
+  function getStudyCounts(){
+    try{
+      if (typeof StudyMgr !== 'undefined' && StudyMgr && StudyMgr.active) {
+        const total = (typeof study !== 'undefined' && study && study.total) ? study.total : (StudyMgr.pageIds ? StudyMgr.pageIds.length : 0);
+        const remain = (StudyMgr.pageIds ? StudyMgr.pageIds.length : 0);
+        const done = Math.max(0, total - remain);
+        return {done, total};
+      }
+    }catch(e){}
+    const total = (typeof study !== 'undefined' && study) ? (study.total||0) : 0;
+    const done  = (typeof study !== 'undefined' && study) ? (study.completed ? study.completed.length : 0) : 0;
+    return {done, total};
+  }
+  function setCompleteBtnText(){
+    var ids = ['pageCompleteBtn','nlCompleteBtn'];
+    var p = getStudyCounts();
+    ids.forEach(function(id){
+      var btn = document.getElementById(id);
+      if(btn){ btn.textContent = '📖 ページ完了 ' + p.done + '/' + p.total; }
+    });
+  }
+function updateStudyStats(){
+    if($('studyTotal')) $('studyTotal').value = study.total;
+    if($('studyPerPage')) $('studyPerPage').value = study.perPage;
+    if($('statTotal')) $('statTotal').textContent = study.total;
+    if($('statRemain')) $('statRemain').textContent = Math.max(0, study.total - study.completed.length);
+    if($('statProgress')){
+      const p = study.total>0 ? Math.round(study.completed.length/study.total*100) : 0;
+      $('statProgress').textContent = p+'%';
+    }
+    if($('statTime')){
+      const remainTime = Math.max(0, (study.total - study.completed.length)*study.perPage);
+      $('statTime').textContent = remainTime + '分';
+    }
+    const log = $('studyLog'); if(log){
+      log.innerHTML='';
+      for(let i=0;i<study.total;i++){
+        const item = document.createElement('div'); item.className='page-btn';
+        const done = study.completed.includes(i);
+        if(done) item.classList.add('completed');
+        const icon = document.createElement('div'); icon.textContent = done?'✅':'⬜'; icon.style.fontSize='20px'; icon.style.marginBottom='4px';
+        const txt  = document.createElement('div'); txt.textContent = `p.${i+1}`; txt.style.fontSize='12px'; txt.style.fontWeight='600';
+        item.appendChild(icon); item.appendChild(txt);
+        item.onclick = ()=>{ togglePage(i); };
+        log.appendChild(item);
+      }
+    }
+    if($('pageCompleteBtn')) setCompleteBtnText();
+  }
+  function togglePage(i){
+    if(study.completed.includes(i)){
+      study.completed = study.completed.filter(x=>x!==i);
+    }else{
+      study.completed.push(i);
+    }
+    updateStudyStats();
+  }
+  function generateStudy(){
+    // 既存の学習イベントを掃除してから安定配置
+    NLStore.events = NLStore.events.filter(ev => ev.kind!=="study");
+    const total = parseInt(($('studyTotal')||{value:20}).value,10);
+    const per   = clamp(parseInt(($('studyPerPage')||{value:5}).value,10)||5,1,360);
+    study.total = total; study.perPage = per; study.completed = [];
+    // 現在から順に、休憩などの考慮なしのシンプル連続割付（安定）
+    const palette = ['#4da3ff','#ff6b6b','#51cf66','#ffd43b','#a78bfa','#fb7185','#38bdf8','#fb923c'];
+    let cursor = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date())); cursor.setSeconds(0,0);
+    const newIds = [];
+    for(let i=0;i<total;i++){
+      const start = new Date(cursor.getTime());
+      const end   = new Date(cursor.getTime() + per*60000);
+      const ev = NLStore.addAbs(start,end,`${i+1}`, palette[i%palette.length], "study");
+      if(ev && ev.id) newIds.push(ev.id);
+      cursor = new Date(end.getTime());
+    }
+    NLStore.save();
+    // 勉強管理を有効化し、生成したIDを登録
+    if(window.StudyStart){ StudyStart(newIds); } else { if(window.StudyMgr){ StudyMgr.active=true; StudyMgr.pageIds=newIds; StudyMgr.save&&StudyMgr.save(); } }
+    updateStudyStats();
+    drawPlanner();
+    nlRebuildAll(); updateOverallStudyUI(); if(window.__startOverallTicker) window.__startOverallTicker();
+    notify('📚 学習予定を生成しました（安定版）');
+  }
+  function notify(msg){
+    const n = document.createElement('div');
+    n.className='notification'; n.textContent=msg;
+    document.body.appendChild(n);
+    setTimeout(()=>n.remove(), 2500);
+  }
+
+  // ============== デジタル時計（そのまま） ==============
+  function updateDigital(){
+    const d = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+    const h = pad2(d.getHours()), m = pad2(d.getMinutes()), s = pad2(d.getSeconds());
+    if($('digitalTime')) $('digitalTime').textContent = `${h}:${m}:${s}`;
+    const y=d.getFullYear(), mo=pad2(d.getMonth()+1), dd=pad2(d.getDate());
+    const days = ['日','月','火','水','木','金','土'];
+    if($('digitalDate')) $('digitalDate').textContent = `${y}年${mo}月${dd}日 (${days[d.getDay()]})`;
+  }
+
+  // ============== イベント: タブ・ボタン結線 ==============
+  
+  // ===== 勉強管理（ページ進行／強制終了） =====
+  const STUDY_LS_KEY = 'STUDY_MGR';
+  const StudyMgr = {
+    active:false,
+    pageIds:[], // NLStore上のイベントID配列（順序）
+    load(){
+      try{
+        const o = JSON.parse(localStorage.getItem(STUDY_LS_KEY)||'{}');
+        this.active = !!o.active;
+        this.pageIds = Array.isArray(o.pageIds)?o.pageIds:[];
+      }catch(e){ this.active=false; this.pageIds=[]; }
+    },
+    save(){ localStorage.setItem(STUDY_LS_KEY, JSON.stringify({active:this.active, pageIds:this.pageIds})); },
+    isStudyEvent(ev){ return ev && this.pageIds.includes(ev.id); },
+    currentAndNext(nowMs){
+      // 現在進行中ページ and その次のページindex
+      const events = this.pageIds.map(id=>NLStore.events.find(e=>e.id===id)).filter(Boolean);
+      let curIdx = -1;
+      for(let i=0;i<events.length;i++){
+        const ev = events[i];
+        if(ev.start<=nowMs && nowMs<ev.end){ curIdx=i; break; }
+        if(nowMs <= ev.start){ curIdx = i-1; break; }
+      }
+      if(curIdx===-1 && events.length>0 && nowMs<events[0].start){ curIdx=-1; }
+      return {events, curIdx, nextIdx: Math.min(curIdx+1, events.length-1)};
+    },
+    completePageNow(){
+      if(!this.active) return;
+      const nowMs = Date.now();
+      // 0) 現時点までに完了したページをすべて削除（履歴も消す）
+      let keptIds = [];
+      for(const id of this.pageIds){
+        const ev = NLStore.events.find(e=>e.id===id);
+        if(!ev) continue;
+        if(ev.end<=nowMs){ 
+          // 完了済み → 削除
+          NLStore.events = NLStore.events.filter(e=>e.id!==id);
+        }else{
+          keptIds.push(id);
+        }
+      }
+      this.pageIds = keptIds;
+      // 1) 進行中ページを特定し、押した瞬間に「完了」として削除する
+      let curIdx = -1;
+      for(let i=0;i<this.pageIds.length;i++){
+        const ev = NLStore.events.find(e=>e.id===this.pageIds[i]);
+        if(ev && ev.start<=nowMs && nowMs<ev.end){ curIdx=i; break; }
+      }
+      if(curIdx>=0){
+        const curId = this.pageIds[curIdx];
+        NLStore.events = NLStore.events.filter(e=>e.id!==curId);
+        this.pageIds.splice(curIdx,1);
+      }
+      // 2) 残りを now から順に詰める
+      let t = Math.floor(nowMs/60000)*60000;
+      for(const id of this.pageIds){
+        const ev = NLStore.events.find(e=>e.id===id);
+        if(!ev) continue;
+        const durRaw = Math.max(60000, ev.end - ev.start);
+        const dur = Math.max(60000, Math.round(durRaw/60000)*60000);
+        ev.start = t; ev.end = t + dur; t = ev.end;
+      }
+      if(this.pageIds.length===0){ this.active=false; }
+      NLStore.save();
+      drawPlanner(); nlRebuildAll();
+      StudyUI.update();
+    setCompleteBtnText(); },
+    forceEnd(){
+      // 関連イベント削除・状態クリア
+      NLStore.events = NLStore.events.filter(ev=>!this.pageIds.includes(ev.id));
+      NLStore.save();
+      this.active=false; this.pageIds=[]; this.save();
+      drawPlanner(); nlRebuildAll();
+      StudyUI.update();
+    setCompleteBtnText(); }
+  };
+  StudyMgr.load();
+
+  // ===== UI層（表示/非表示と文言更新） =====
+  const StudyUI = {
+    ensureButtons(){
+      // 既存の planner 用ボタン（#pageCompleteBtn）を流用
+      const pc = document.getElementById('pageCompleteBtn');
+      if(pc && !pc.dataset.bound){ pc.dataset.bound='1'; pc.onclick = ()=>StudyMgr.completePageNow(); }
+      // 数直線パネルの下に専用ボタンを用意
+      if(!document.getElementById('studyCtlNL')){
+        const rows = document.getElementById('nlRows');
+        if(rows){
+          const bar = document.createElement('div');
+          bar.id = 'studyCtlNL';
+          bar.style.display='none';
+          bar.style.margin='8px 0 4px 80px';
+          bar.style.display='flex'; bar.style.gap='8px'; bar.style.alignItems='center';
+          bar.innerHTML = `
+            <button id=\"nlCompleteBtn\" class=\"btn small\">📖 ページ完了 0/0</button>
+          `;
+          rows.parentNode.insertBefore(bar, rows);
+          document.getElementById('nlCompleteBtn').onclick = ()=>StudyMgr.completePageNow();
+          
+        }
+      }
+      // プランナー上にも小さな強制終了ボタンを追加（既存完了ボタンの横）
+          },
+    update(){
+      this.ensureButtons();
+      const pc = document.getElementById('pageCompleteBtn');
+      const pForce = document.getElementById('plannerForceBtn');
+      const nlBar = document.getElementById('studyCtlNL');
+      if(StudyMgr.active){
+        if(pc){ pc.style.display='inline-flex'; }
+        if(pForce){ pForce.style.display='inline-flex'; }
+        if(nlBar){ nlBar.style.display='flex'; }
+        // 進捗表示 (x/y)
+        const total = StudyMgr.pageIds.length;
+        let done = 0; const nowMs = Date.now();
+        for(const id of StudyMgr.pageIds){
+          const ev = NLStore.events.find(e=>e.id===id);
+          if(ev && ev.end<=nowMs) done++;
+        }
+        setCompleteBtnText();
+      }else{
+        if(pc){ pc.style.display='none'; }
+        if(pForce){ pForce.style.display='none'; }
+        if(nlBar){ nlBar.style.display='none'; }
+      }
+    }
+  };
+function initUI(){
+    // --- Ensure Numberline Style Panel exists before binding events ---
+    const rowsMount = document.getElementById('nlRows');
+    if(rowsMount && !document.getElementById('nlStylePanel')){
+      const panel = document.createElement('div');
+      panel.id = 'nlStylePanel';
+      panel.style.display='grid';
+      panel.style.gridTemplateColumns='repeat(3, minmax(0,1fr))';
+      panel.style.gap='8px';
+      panel.style.margin='8px 0 4px 80px';
+      panel.style.alignItems='center';
+      panel.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">透明度</label>
+          <input id="nlOpacity" type="range" min="0.2" max="1" step="0.05" value="0.8" style="width:140px;">
+          <span id="nlOpacityVal" style="font-size:12px;opacity:.8;">0.80</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">見た目</label>
+          <select id="nlTheme" style="padding:4px 8px;font-size:12px;">
+            <option value="glass">ガラス（高品質）</option>
+            <option value="metal">メタル</option>
+            <option value="solid">ソリッド</option>
+            <option value="gradient">グラデーション</option>
+            <option value="neon">ネオン</option>
+            <option value="outline">アウトライン</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">形</label>
+          <select id="nlShape" style="padding:4px 8px;font-size:12px;">
+            <option value="pill">ピル（丸）</option>
+            <option value="rect">角</option>
+            <option value="underline">アンダーライン</option>
+            <option value="bevel">ベベル</option>
+          </select>
+        </div>`;
+      rowsMount.parentNode.insertBefore(panel, rowsMount.nextSibling);
+    }
+    
+    // --- Tick Style Panel (メモリ設定) ---
+    if(rowsMount && !document.getElementById('nlTickPanel')){
+      const tp = document.createElement('div');
+      tp.id = 'nlTickPanel';
+      tp.style.display='grid';
+      tp.style.gridTemplateColumns='repeat(3, minmax(0,1fr))';
+      tp.style.gap='8px';
+      tp.style.margin='2px 0 10px 80px';
+      tp.style.alignItems='center';
+      tp.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">細目盛 長さ(%)</label>
+          <input id="tickMinorLen" type="range" min="10" max="60" step="2" value="28" style="width:140px;">
+          <span id="tickMinorLenVal" style="font-size:12px;opacity:.8;">28%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">細目盛 太さ(px)</label>
+          <input id="tickMinorThick" type="range" min="1" max="6" step="1" value="1" style="width:140px;">
+          <span id="tickMinorThickVal" style="font-size:12px;opacity:.8;">1px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">細目盛 色</label>
+          <input id="tickMinorColor" type="color" value="#9fb5c9" style="width:44px;height:26px;padding:0;border:none;">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">太目盛 長さ(%)</label>
+          <input id="tickMajorLen" type="range" min="20" max="90" step="2" value="40" style="width:140px;">
+          <span id="tickMajorLenVal" style="font-size:12px;opacity:.8;">40%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">太目盛 太さ(px)</label>
+          <input id="tickMajorThick" type="range" min="2" max="10" step="1" value="3" style="width:140px;">
+          <span id="tickMajorThickVal" style="font-size:12px;opacity:.8;">3px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">太目盛 色</label>
+          <input id="tickMajorColor" type="color" value="#285078" style="width:44px;height:26px;padding:0;border:none;">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">グロー(光)</label>
+          <input id="tickGlow" type="range" min="0" max="20" step="1" value="6" style="width:140px;">
+          <span id="tickGlowVal" style="font-size:12px;opacity:.8;">6</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">影(シャドウ)</label>
+          <input id="tickShadow" type="range" min="0" max="20" step="1" value="6" style="width:140px;">
+          <span id="tickShadowVal" style="font-size:12px;opacity:.8;">6</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;opacity:.8;">形</label>
+          <select id="tickShape" style="padding:4px 8px;font-size:12px;">
+            <option value="line">ライン</option>
+            <option value="rounded">丸端</option>
+            <option value="diamond">ダイヤ</option>
+            <option value="dot">ドット</option>
+          </select>
+        </div>
+      `;
+      rowsMount.parentNode.insertBefore(tp, rowsMount.nextSibling);
+    }
+// テーマ/モード変更で再描画
+    if($('theme')) $('theme').onchange = e=>{ document.body.className = e.target.value; drawPlanner(); };
+    // set body class on load if theme preselected
+    if($('theme') && $('theme').value){ document.body.className = $('theme').value; }
+    if($('mode'))  $('mode').onchange  = ()=>drawPlanner();
+    // New: planner-specific appearance bindings
+    if($('style')) $('style').onchange = ()=>drawPlanner();
+    if($('shape')) $('shape').onchange = ()=>drawPlanner();
+    if($('motion')) $('motion').onchange = ()=>drawPlanner();
+    if($('clockDesign')) $('clockDesign').onchange = ()=>drawPlanner();
+
+    // 既存「追加」ボタンをNLStoreに接続
+    if($('add')) $('add').onclick = addEventFromPlannerInputs;
+
+    // 予定一覧表示
+    renderList();
+
+    // 数直線タブを開いたら再構築・同期
+    document.querySelectorAll('.tab').forEach(t=>{
+      t.onclick = ()=>{
+        document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));
+        t.classList.add('active');
+        document.querySelector(`[data-content="${t.dataset.tab}"]`).classList.add('active');
+        if(t.dataset.tab==='numberline'){
+          setBarStyleFromUI(); setTickStyleFromUI();
+          nlRebuildAll();
+          nlStartTimers();
+        }
+        if(t.dataset.tab==='planner'){
+          drawPlanner();
+        }
+        if(t.dataset.tab==='study'){
+          updateStudyStats();
+        }
+      };
+    });
+
+    // 数直線から追加
+    if($('nlAdd')) $('nlAdd').onclick = nlAddFromInputs;
+    if($('nlSync')) $('nlSync').onclick = ()=>{ setBarStyleFromUI(); nlRebuildAll(); };
+    const o=$('nlOpacity'), t=$('nlTheme'), s=$('nlShape');
+    [o,t,s].forEach(ctrl=>{ if(ctrl){ ctrl.oninput = ()=>{ setBarStyleFromUI(); nlRebuildAll(); }; } });
+    const tmIds=['tickMinorLen','tickMinorThick','tickMinorColor','tickMajorLen','tickMajorThick','tickMajorColor','tickGlow','tickShadow','tickShape'];
+    tmIds.forEach(id=>{ const el=document.getElementById(id); if(el){ el.oninput=()=>{ setTickStyleFromUI(); applyTickStyleAll();
+
+  // === Responsive: keep bars & hands aligned on resize ===
+  (function(){
+    const root = document.getElementById('nlRows');
+    if(!root || typeof ResizeObserver==='undefined') return;
+    const ro = new ResizeObserver(()=>{
+      const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+      document.querySelectorAll('.nl-row').forEach(row=>{
+        // re-render bars
+        nlRenderBarsForHour(row);
+        // update hands if current
+        const isCurrent = row.classList.contains('current');
+        const sHand = row.querySelector('.nl-hand.s');
+        const mHand = row.querySelector('.nl-hand.m');
+        if(isCurrent){
+          if(sHand) sHand.style.left = (nowD.getSeconds()/60*100)+'%';
+          if(mHand) mHand.style.left = (nowD.getMinutes()/60*100)+'%';
+        }
+      });
+      nlUpdateETA && nlUpdateETA();
+    });
+    ro.observe(root);
+  })();
+
+
+  // === ETA seconds toggle ===
+  const NL_SEC_KEY = "nl_eta_show_seconds";
+  function nlLoadShowSeconds(){ try{ return localStorage.getItem(NL_SEC_KEY)==='1'; }catch(e){ return false; } }
+  function nlSaveShowSeconds(v){ try{ localStorage.setItem(NL_SEC_KEY, v?'1':'0'); }catch(e){} }
+  (function(){
+    const cb = document.getElementById('nlShowSeconds');
+    if(cb){ cb.checked = nlLoadShowSeconds(); cb.onchange = ()=>nlSaveShowSeconds(cb.checked); }
+  })();
+
+
+  // ===== Fullscreen handling =====
+  function nlEnterFullscreen(){
+    const cont = document.createElement('div'); cont.className='nl-fullscreen'; cont.id='nlFS';
+    const close = document.createElement('button'); close.className='nl-fs-close'; close.textContent='閉じる';
+    close.onclick = ()=>{ const fs=document.getElementById('nlFS'); if(fs) fs.remove(); nlRebuildAll(); };
+    cont.appendChild(close);
+    document.body.appendChild(cont);
+    // Build a fresh current-hour row inside fullscreen
+    const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+    const base = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), nowD.getHours(), 0, 0, 0);
+    const row = nlBuildRow(base, true);
+    cont.appendChild(row);
+  }
+  (function(){ const btn=document.getElementById('nlFullscreenBtn'); if(btn) btn.onclick=nlEnterFullscreen; })();
+ }; }});
+    setBarStyleFromUI();
+
+    // 勉強
+    if($('studyGenerate')) $('studyGenerate').onclick = generateStudy;
+  if($('studyForceEnd')) $('studyForceEnd').onclick = ()=>StudyMgr && StudyMgr.forceEnd && StudyMgr.forceEnd();
+    if($('pageCompleteBtn')) $('pageCompleteBtn').onclick = ()=>{
+      const next = study.completed.length;
+      if(next<study.total){ togglePage(next); }
+    };
+
+    // エクスポート/インポート/全削除は NLStore に接続
+    if($('export')) $('export').onclick = ()=>{
+      const blob = new Blob([JSON.stringify(NLStore.events,null,2)],{type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'nl_events.json'; a.click();
+    };
+    if($('import')) $('import').onclick = ()=>$('file').click();
+    if($('file')) $('file').onchange = (e)=>{
+      const f = e.target.files[0]; if(!f) return;
+      const r = new FileReader();
+      r.onload = ()=>{
+        try{
+          const d = JSON.parse(r.result);
+          if(Array.isArray(d)){
+            NLStore.events = d; NLStore.save();
+            renderList(); drawPlanner(); nlRebuildAll();
+          }
+        }catch(err){ alert('読込失敗'); }
+      };
+      r.readAsText(f);
+    };
+    if($('clear')) $('clear').onclick = ()=>{
+      if(confirm('全ての予定を削除しますか？')){
+        NLStore.clear(); renderList(); drawPlanner(); nlRebuildAll();
+      }
+    };
+  }
+
+
+  // === Theme binding (includes horror, upgraded) ===
+  (function(){
+    const sel = document.getElementById('theme');
+    const root = document.documentElement;
+    function applyThemeClass(v){
+      root.classList.forEach(c=>{ if(c.startsWith('theme-')) root.classList.remove(c); });
+      if(v && v.startsWith('theme-')) root.classList.add(v);
+      const wrap = document.querySelector('.clock-wrap');
+      if(!wrap) return;
+      // clear old
+      wrap.querySelectorAll('.h-aura,.h-fog,.h-vignette,.h-scan,.bleed,.pulse').forEach(n=>n.remove());
+      if(v==='theme-horror'){
+        const aura = document.createElement('div'); aura.className='h-aura'; wrap.appendChild(aura);
+        const fog1 = document.createElement('div'); fog1.className='h-fog f1'; wrap.appendChild(fog1);
+        const fog2 = document.createElement('div'); fog2.className='h-fog f2'; wrap.appendChild(fog2);
+        const vig  = document.createElement('div'); vig.className='h-vignette'; wrap.appendChild(vig);
+        const scan = document.createElement('div'); scan.className='h-scan'; wrap.appendChild(scan);
+      }
+    }
+    if(sel){
+      applyThemeClass(sel.value);
+      sel.addEventListener('change', ()=>applyThemeClass(sel.value));
+    }
+  })();
+  
+  // === Planner ETA (same design as numberline) ===
+  const PL_SEC_KEY = "pl_eta_show_seconds";
+  function plLoadShowSeconds(){ try{ return localStorage.getItem(PL_SEC_KEY)==='1'; }catch(e){ return false; } }
+  function plSaveShowSeconds(v){ try{ localStorage.setItem(PL_SEC_KEY, v?'1':'0'); }catch(e){} }
+  (function(){
+    const cb = document.getElementById('plShowSeconds');
+    if(cb){ cb.checked = plLoadShowSeconds(); cb.onchange = ()=>plSaveShowSeconds(cb.checked); }
+  })();
+  function plUpdateETA(secondAligned){
+    const now = secondAligned ? (Date.now() - (Date.now()%1000)) : Date.now();
+    const etaEl = document.getElementById('plEta'); if(!etaEl) return;
+    const showSec = plLoadShowSeconds();
+    const ev = (NLStore.events||[]).find(ev => now>=ev.start && now<ev.end);
+    if(!ev){ etaEl.style.display='none'; return; }
+    const remainMs = Math.max(0, ev.end - now);
+    etaEl.style.display='block';
+    const title = (ev.title||'予定').toString();
+    if(showSec){
+      const totalSec = Math.max(0, Math.floor(remainMs/1000));
+      const mm = Math.floor(totalSec/60);
+      const ss = totalSec%60;
+      const ssPad = String(ss).padStart(2,'0');
+      etaEl.textContent = mm>0 ? `${title} (${mm}分${ssPad}秒)` : `${title} (${ssPad}秒)`;
+    }else{
+      const mins = Math.max(0, Math.ceil(remainMs/60000));
+      etaEl.textContent = `${title} (${mins}分)`;
+    }
+  }
+  // ============== メインループ ==============
+
+  // ===== Second-aligned ticker =====
+  (function(){
+    if (window.__secAlignedTimer) { clearInterval(window.__secAlignedTimer); window.__secAlignedTimer = null; }
+    if (window.__secAlignedKick)  { clearTimeout(window.__secAlignedKick);  window.__secAlignedKick  = null; }
+
+    function nowAlignedMs(){ const n = Date.now(); return n - (n % 1000); }
+
+    function updateSecondAligned(){
+      const nms = nowAlignedMs();
+      try{
+        const rows = Array.from(document.querySelectorAll('.nl-row'));
+  rows.forEach(r=>{ r.__nlStack=0; r.__nlOuterStack=0; });
+        const nowD = new Date(nms);
+        rows.forEach(row=>{
+          const ts = parseInt(row.dataset.startTs||'0',10);
+          const d = new Date(ts);
+          const isCurrent = row.classList.contains('current') ||
+            (d.getFullYear()===nowD.getFullYear() && d.getMonth()===nowD.getMonth() &&
+             d.getDate()===nowD.getDate() && d.getHours()===nowD.getHours());
+          const sHand = row.querySelector('.nl-hand.s');
+          const mHand = row.querySelector('.nl-hand.m');
+          if(isCurrent){
+            if(sHand) sHand.style.left = (nowD.getSeconds()/60*100)+'%';
+            if(mHand) mHand.style.left = (nowD.getMinutes()/60*100)+'%';
+          }
+        });
+      }catch(e){}
+
+      try{ if(typeof nlUpdateETA==='function') nlUpdateETA(true); }catch(e){}
+      try{ if(typeof plUpdateETA==='function') plUpdateETA(true); }catch(e){}
+    }
+
+    function kick(){ updateSecondAligned(); window.__secAlignedTimer = setInterval(updateSecondAligned, 1000); }
+    const delay = 1000 - (Date.now() % 1000);
+    window.__secAlignedKick = setTimeout(kick, delay);
+  })();
+
+  
+  // ===== Overall Study (sum of remaining time & final end) =====
+  function __fmtHM(ms){
+    ms = Math.max(0, ms|0);
+    const totalSec = Math.floor(ms/1000);
+    const h = Math.floor(totalSec/3600);
+    const m = Math.floor((totalSec%3600)/60);
+    if(h>0) return `${h}時間${m}分`;  // 切り捨て表示
+    return `${m}分`;                  // 切り捨て表示（予定の残り時間と同じ感覚）
+  }
+  function __fmtClock(d){
+    const pad = (n)=>(''+n).padStart(2,'0');
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  
+  function computeOverallStudy(nowMs){
+    try{
+      let events = [];
+      if(window.StudyMgr && StudyMgr.active && Array.isArray(StudyMgr.pageIds) && StudyMgr.pageIds.length>0){
+        events = StudyMgr.pageIds
+          .map(id=>NLStore.events.find(e=>e.id===id))
+          .filter(ev=>ev && ev.end>nowMs);
+      }else{
+        events = (NLStore.events||[]).filter(ev=>ev && ev.kind==='study' && ev.end>nowMs);
+      }
+      events.sort((a,b)=>a.start-b.start);
+      if(events.length===0){ return null; }
+      const lastEnd = events[events.length-1].end;
+      const remainMs = Math.max(0, lastEnd - nowMs); // 連続割付前提: 全体は最終終了時刻-現在時刻
+      return { remainMs, lastEnd: new Date(lastEnd) };
+    }catch(e){ return null; }
+  }
+
+  function ensureNlOverallBadge(){
+    // find current hour row
+    const nowD = (window.__getNow?window.__getNow():new Date());
+    const nowHourStart = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), nowD.getHours(), 0, 0).getTime();
+    let currentRow = null;
+    document.querySelectorAll('.nl-row').forEach(row=>{ const ts=parseInt(row.dataset.startTs||'0',10); if(ts===nowHourStart) currentRow=row; });
+    if(!currentRow) return null;
+    const scale = currentRow.querySelector('.nl-scale');
+    if(!scale) return null;
+    let badge = document.getElementById('nlOverallBadge');
+    if(!badge){
+      badge = document.createElement('div');
+      badge.id = 'nlOverallBadge';
+      badge.className = 'nl-overall-inline';
+      badge.style.display='none';
+      badge.innerHTML = `<span id="nlOverallRemain">残り --</span> <span id="nlOverallEnd">終了 --:--</span>`;
+      scale.appendChild(badge);
+    }else{
+      // ensure it is inside the current row scale
+      if(badge.parentNode!==scale){ badge.remove(); scale.appendChild(badge); }
+      badge.className = 'nl-overall-inline';
+    }
+    return badge;
+  }
+  let __osi_ticking=false;
+  function updateOverallStudyUI(){
+    if(__osi_ticking) return; __osi_ticking=true; setTimeout(()=>{ __osi_ticking=false; }, 100);
+    const now = (window.__getNow?window.__getNow():new Date());
+    const info = computeOverallStudy(now.getTime());
+    const banner = document.getElementById('overallStudyInfo');
+    const badge = ensureNlOverallBadge();
+    if(info){
+      const rtxt = __fmtHM(info.remainMs);
+      const etxt = __fmtClock(info.lastEnd);
+      if(banner){
+        banner.style.display='flex';
+        const r = document.getElementById('osiRemain'), e = document.getElementById('osiEnd');
+        if(r) r.textContent = `残り ${rtxt}`;
+        if(e) e.textContent = `終了 ${etxt}`;
+      }
+      if(badge){
+        badge.style.display='block';
+        const rr = document.getElementById('nlOverallRemain');
+        const ee = document.getElementById('nlOverallEnd');
+        if(rr) rr.textContent = `残り ${rtxt}`;
+        if(ee) ee.textContent = `終了 ${etxt}`;
+      }
+    }else{
+      if(banner) banner.style.display='none';
+      const b = document.getElementById('nlOverallBadge');
+      if(b) b.style.display='none';
+    }
+  }
+
+  
+  // ===== Overall Study updater: second-aligned interval (rAF非依存) =====
+  (function(){
+    function startSecondAlignedOverall(){
+      try{
+        if(window.__overallKick) clearTimeout(window.__overallKick);
+        if(window.__overallTimer) clearInterval(window.__overallTimer);
+      }catch(e){}
+      function kick(){
+        if(window.__overallTimer) clearInterval(window.__overallTimer);
+        updateOverallStudyUI();
+        window.__overallTimer = setInterval(updateOverallStudyUI, 1000);
+      }
+      var delay = 1000 - (Date.now() % 1000);
+      window.__overallKick = setTimeout(kick, delay);
+    }
+    window.__startOverallTicker = startSecondAlignedOverall;
+  })();
+
+  function tick(){ drawPlanner(); drawTimerArcs(); nlRenderTimerOverlays(); updateDigital(); updateOverallStudyUI(); requestAnimationFrame(tick); }
+
+  // 初期化
+  initUI(); if(window.__startOverallTicker) window.__startOverallTicker(); if(typeof updateHUD==='function') updateHUD();
+  if($('studyGenerate')) $('studyGenerate').onclick = generateStudy;
+  if($('studyForceEnd')) $('studyForceEnd').onclick = ()=>StudyMgr && StudyMgr.forceEnd && StudyMgr.forceEnd();
+  StudyUI.update();
+  setCompleteBtnText(); nlRebuildAll(); updateOverallStudyUI(); // 先に構築しておく（初回）
+  setTickStyleFromUI(); applyTickStyleAll();
+
+  // === Responsive: keep bars & hands aligned on resize ===
+  (function(){
+    const root = document.getElementById('nlRows');
+    if(!root || typeof ResizeObserver==='undefined') return;
+    const ro = new ResizeObserver(()=>{
+      const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+      document.querySelectorAll('.nl-row').forEach(row=>{
+        // re-render bars
+        nlRenderBarsForHour(row);
+        // update hands if current
+        const isCurrent = row.classList.contains('current');
+        const sHand = row.querySelector('.nl-hand.s');
+        const mHand = row.querySelector('.nl-hand.m');
+        if(isCurrent){
+          if(sHand) sHand.style.left = (nowD.getSeconds()/60*100)+'%';
+          if(mHand) mHand.style.left = (nowD.getMinutes()/60*100)+'%';
+        }
+      });
+      nlUpdateETA && nlUpdateETA();
+    });
+    ro.observe(root);
+  })();
+
+
+  // === ETA seconds toggle ===
+  const NL_SEC_KEY = "nl_eta_show_seconds";
+  function nlLoadShowSeconds(){ try{ return localStorage.getItem(NL_SEC_KEY)==='1'; }catch(e){ return false; } }
+  function nlSaveShowSeconds(v){ try{ localStorage.setItem(NL_SEC_KEY, v?'1':'0'); }catch(e){} }
+  (function(){
+    const cb = document.getElementById('nlShowSeconds');
+    if(cb){ cb.checked = nlLoadShowSeconds(); cb.onchange = ()=>nlSaveShowSeconds(cb.checked); }
+  })();
+
+
+  // ===== Fullscreen handling =====
+  function nlEnterFullscreen(){
+    const cont = document.createElement('div'); cont.className='nl-fullscreen'; cont.id='nlFS';
+    const close = document.createElement('button'); close.className='nl-fs-close'; close.textContent='閉じる';
+    close.onclick = ()=>{ const fs=document.getElementById('nlFS'); if(fs) fs.remove(); nlRebuildAll(); };
+    cont.appendChild(close);
+    document.body.appendChild(cont);
+    // Build a fresh current-hour row inside fullscreen
+    const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+    const base = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), nowD.getHours(), 0, 0, 0);
+    const row = nlBuildRow(base, true);
+    cont.appendChild(row);
+  }
+  (function(){ const btn=document.getElementById('nlFullscreenBtn'); if(btn) btn.onclick=nlEnterFullscreen; })();
+
+
+// === Inject style panel for bars ===
+(function(){
+  const rows = document.getElementById('nlRows');
+  if(!rows) return;
+  if(!document.getElementById('nlStylePanel')){
+    const panel = document.createElement('div');
+    panel.id = 'nlStylePanel';
+    panel.style.display='grid';
+    panel.style.gridTemplateColumns='repeat(3, minmax(0,1fr))';
+    panel.style.gap='8px';
+    panel.style.margin='8px 0 4px 80px';
+    panel.style.alignItems='center';
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:12px;opacity:.8;">透明度</label>
+        <input id="nlOpacity" type="range" min="0.2" max="1" step="0.05" value="0.8" style="width:140px;">
+        <span id="nlOpacityVal" style="font-size:12px;opacity:.8;">0.80</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:12px;opacity:.8;">見た目</label>
+        <select id="nlTheme" style="padding:4px 8px;font-size:12px;">
+          <option value="glass">ガラス（高品質）</option>
+          <option value="metal">メタル</option>
+          <option value="solid">ソリッド</option>
+          <option value="gradient">グラデーション</option>
+          <option value="neon">ネオン</option>
+          <option value="outline">アウトライン</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:12px;opacity:.8;">形</label>
+        <select id="nlShape" style="padding:4px 8px;font-size:12px;">
+          <option value="pill">ピル（丸）</option>
+          <option value="rect">角</option>
+          <option value="underline">アンダーライン</option>
+          <option value="bevel">ベベル</option>
+        </select>
+      </div>
+    `;
+    rows.parentNode.insertBefore(panel, rows.nextSibling);
+  }
+})();
+
+  tick();
+})();
+</script>
+
+<!-- Timer/Stopwatch & Numberline Overlay Patch v2 -->
+<script>
+(function(){
+  if (window.__timerPatchAppliedV2) return;
+  window.__timerPatchAppliedV2 = true;
+  const $ = (id)=>document.getElementById(id);
+
+  // Globals
+  window.timers = window.timers || [];
+  window.sws    = window.sws || [];
+  window.timerId = window.timerId || 0;
+  window.swId    = window.swId || 0;
+
+  // Helpers presence fallbacks
+  window.minToAng = window.minToAng || function(min, total){ const t=total||60; return (min/t)*Math.PI*2 - Math.PI/2; };
+  window.arcPath = window.arcPath || function(r, a1, a2, sw){
+    const cx=250, cy=250;
+    const rr1 = r - (sw/2), rr2 = r + (sw/2);
+    const x1 = cx + rr1*Math.cos(a1), y1 = cy + rr1*Math.sin(a1);
+    const x2 = cx + rr1*Math.cos(a2), y2 = cy + rr1*Math.sin(a2);
+    const x3 = cx + rr2*Math.cos(a2), y3 = cy + rr2*Math.sin(a2);
+    const x4 = cx + rr2*Math.cos(a1), y4 = cy + rr2*Math.sin(a1);
+    const large = (a2-a1) % (Math.PI*2) > Math.PI ? 1 : 0;
+    return `M ${x1} ${y1} A ${rr1} ${rr1} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${rr2} ${rr2} 0 ${large} 0 ${x4} ${y4} Z`;
+  };
+
+  // ============ Stopwatch ============
+  function addSW(){ window.sws.push({id:window.swId++, elapsed:0, running:false, start:0}); renderSW(); }
+  function renderSW(){
+    const root = $('swList'); if(!root) return;
+    root.innerHTML='';
+    (window.sws||[]).forEach((sw,i)=>{
+      const div = document.createElement('div'); div.className='sw-item';
+      const time = document.createElement('div'); time.className='sw-time'; time.id=`sw${sw.id}`;
+      time.textContent = fmtSW(sw.elapsed);
+      const btns = document.createElement('div'); btns.className='sw-btns';
+      const start = document.createElement('button'); start.textContent=sw.running?'⏸ 停止':'▶ 開始'; start.onclick=()=>toggleSW(i);
+      const reset = document.createElement('button'); reset.className='ghost'; reset.textContent='↻ リセット'; reset.onclick=()=>resetSW(i);
+      const del   = document.createElement('button'); del.className='ghost danger'; del.textContent='🗑️ 削除'; del.onclick=()=>{window.sws.splice(i,1); renderSW();};
+      btns.append(start, reset, del); div.append(time, btns); root.appendChild(div);
+    });
+  }
+  function toggleSW(i){ const sw=window.sws[i]; if(!sw) return; if(sw.running){ sw.running=false; sw.elapsed += (Date.now()-sw.start)/1000; }else{ sw.running=true; sw.start=Date.now(); } renderSW(); }
+  function resetSW(i){ const sw=window.sws[i]; if(!sw) return; sw.running=false; sw.elapsed=0; renderSW(); }
+  function fmtSW(sec){ const m=Math.floor(sec/60), s=Math.floor(sec%60); return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
+
+  // ============ Timer ============
+  function addTimer(){
+    const now = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date())));
+    window.timers.push({
+      id: window.timerId++,
+      total: 25*60, remain: 25*60, running:false, start:0, alerted:false,
+      startMin: now.getMinutes(), minutes: 25, gaugeColor:'#4da3ff', clockMode:'outer'
+    });
+    renderTimers();
+  }
+
+  function startTimerUntil(){
+    const timeEl = $('tUntilTime'); if(!timeEl){ alert('終了時刻UIの読み込みに失敗しました'); return; }
+    const val = String(timeEl.value||''); if(!val || !/^[0-2]\d:[0-5]\d$/.test(val)){ alert('終了時刻を選んでください'); return; }
+    const [hhStr, mmStr] = val.split(':');
+    const hh = parseInt(hhStr,10), mm = parseInt(mmStr,10);
+    const now = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()))); const nowAbs = now.getHours()*60 + now.getMinutes();
+    let endAbs = hh*60 + mm; let diff = endAbs - nowAbs; if(diff <= 0) diff += 1440;
+    const color = $('tUntilColor') ? $('tUntilColor').value : '#4da3ff';
+    const clockMode = $('tUntilMode') ? $('tUntilMode').value : 'direct';
+    const t = { id:window.timerId++, total: diff*60, remain: diff*60, running:false, start:0, alerted:false,
+                startMin: now.getMinutes(), minutes: diff, gaugeColor: color, clockMode: clockMode };
+    window.timers.push(t); renderTimers(); startTimer(window.timers.length-1);
+  }
+
+  function renderTimers(){
+    const root = $('timerList'); if(!root) return;
+    root.innerHTML='';
+    window.timers.forEach((t,i)=>{
+      const div = document.createElement('div'); div.className='timer-item';
+      const controls = document.createElement('div'); controls.className='row'; controls.style.marginBottom='12px';
+      const minInput=document.createElement('input'); minInput.type='number'; minInput.min='1'; minInput.max='720'; minInput.value=t.minutes; minInput.style.width='80px';
+      minInput.onchange=(e)=>{ t.minutes=parseInt(e.target.value,10); t.total=t.minutes*60; if(!t.running) t.remain=t.total; updateTimer(i); };
+      const modeLabel=document.createElement('label'); modeLabel.textContent='表示:'; modeLabel.style.marginLeft='8px';
+      const modeSelect=document.createElement('select'); modeSelect.innerHTML='<option value="outer">外周</option><option value="direct">直接配置</option>'; modeSelect.value=t.clockMode||'outer';
+      modeSelect.onchange=(e)=>{ t.clockMode=e.target.value; drawTimerArcs(); nlRenderTimerOverlays(); };
+      const colorLabel=document.createElement('label'); colorLabel.textContent='色:'; colorLabel.style.marginLeft='8px';
+      const colorInput=document.createElement('input'); colorInput.type='color'; colorInput.value=t.gaugeColor||'#4da3ff'; colorInput.style.width='50px';
+      colorInput.onchange=(e)=>{ t.gaugeColor=e.target.value; updateTimer(i); };
+      controls.append(minInput, document.createTextNode(' 分'), modeLabel, modeSelect, colorLabel, colorInput);
+      const display=document.createElement('div'); display.className='timer-display'; display.id=`t${t.id}`; display.style.fontSize='36px';
+      const endSpan=document.createElement('span'); endSpan.id=`te${t.id}`; endSpan.className='tiny'; endSpan.style.marginLeft='8px'; endSpan.style.verticalAlign='middle';
+      const gauge=document.createElement('div'); gauge.className='timer-gauge'; const fill=document.createElement('div'); fill.className='fill'; fill.id=`tf${t.id}`; gauge.appendChild(fill);
+      const row=document.createElement('div'); row.className='row';
+      const startBtn=document.createElement('button'); startBtn.textContent='▶ 開始'; startBtn.onclick=()=>startTimer(i);
+      const pauseBtn=document.createElement('button'); pauseBtn.textContent='⏸ 停止'; pauseBtn.onclick=()=>pauseTimer(i);
+      const resetBtn=document.createElement('button'); resetBtn.className='ghost'; resetBtn.textContent='↻ リセット'; resetBtn.onclick=()=>resetTimer(i);
+      const stopBtn=document.createElement('button'); stopBtn.className='ghost danger'; stopBtn.textContent='🗑️ 削除'; stopBtn.onclick=()=>{window.timers.splice(i,1); renderTimers(); drawTimerArcs(); nlRenderTimerOverlays();};
+      row.append(startBtn,pauseBtn,resetBtn,stopBtn);
+      // compute display
+      const m=Math.floor(Math.abs(t.remain)/60), s=Math.floor(Math.abs(t.remain)%60), sign=t.remain<0?'-':'';
+      display.textContent = `${sign}${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      const end = new Date(Date.now()+Math.max(0,t.remain)*1000); endSpan.textContent=`(終了 ${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')})`;
+      display.appendChild(endSpan);
+      div.append(controls, display, gauge, row); root.appendChild(div);
+    });
+  }
+
+  function startTimer(i){
+    const t=window.timers[i]; if(!t||t.running) return;
+    if(t.remain>0){ t.start = Date.now() - (t.total - t.remain)*1000; } else { t.total=t.minutes*60; t.remain=t.total; t.start=Date.now(); t.startMin=(window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date())).getMinutes(); }
+    t.running=true; t.alerted=false; renderTimers();
+  }
+  function pauseTimer(i){ const t=window.timers[i]; if(!t) return; t.running=false; renderTimers(); }
+  function resetTimer(i){ const t=window.timers[i]; if(!t) return; t.total=t.minutes*60; t.remain=t.total; t.running=false; t.alerted=false; t.startMin=(window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date())).getMinutes(); updateTimer(i); renderTimers(); }
+  function updateTimer(i){
+    const t=window.timers[i]; if(!t) return;
+    const el=$('t'+t.id); if(el){ const m=Math.floor(Math.abs(t.remain)/60), s=Math.floor(Math.abs(t.remain)%60), sign=t.remain<0?'-':''; el.childNodes[0].nodeValue = `${sign}${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; const ee=$('te'+t.id); if(ee){ const end=new Date(Date.now()+Math.max(0,t.remain)*1000); ee.textContent=`(終了 ${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')})`; } }
+    const fill=$('tf'+t.id); if(fill){ const pct=t.total>0? Math.max(0, Math.min(50000,t.remain/t.total*100)) : 0; fill.style.width=pct+'%'; fill.style.background=t.gaugeColor||'#4da3ff'; }
+    drawTimerArcs(); nlRenderTimerOverlays();
+  }
+  function tickTimer(){
+    (window.timers||[]).forEach((t,i)=>{
+      if(t.running){
+        const elapsed=(Date.now()-t.start)/1000; t.remain = t.total - elapsed; updateTimer(i);
+        if(t.remain<=0 && !t.alerted){ t.alerted=true; t.running=false; t.remain=0; try{ notify && notify('⏰ タイマー終了!'); }catch(e){}; const el=$('t'+t.id); if(el){ el.classList.add('alert'); setTimeout(()=>el.classList.remove('alert'),1500);} renderTimers(); }
+      }
+    });
+  }
+
+  // ============ Planner Clock Arcs ============
+  function ensureTimerArcGroup(){
+    let group = $('timerArcs');
+    if(group) return group;
+    // try to find planner clock SVG
+    let svg = document.querySelector('#planner svg, .planner svg, svg#plannerClock, svg#clock, .clock svg, svg');
+    if(!svg || !(svg instanceof SVGElement)) return null;
+    group = document.createElementNS('http://www.w3.org/2000/svg','g');
+    group.setAttribute('id','timerArcs');
+    group.setAttribute('style','pointer-events:none');
+    // Place just beneath hands, above other arcs
+    const hands = svg.querySelector('#hands');
+    if(hands && hands.parentNode){ hands.parentNode.insertBefore(group, hands); } else { svg.appendChild(group); }
+    return group;
+  }
+
+  
+function drawTimerArcs(){
+  const group = ensureTimerArcGroup(); if(!group) return;
+  while(group.firstChild) group.removeChild(group.firstChild);
+  const modeSel = $('mode'); const faceMode = modeSel ? modeSel.value : 'hour';
+  const now = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+  const timers = (window.timers||[]).filter(t=>t && t.total>0 && t.remain>0);
+  const baseR = 210, insetBase = 50, insetStep = 16, sw = 6, s0 = -Math.PI/2;
+  const totalMinOnFace = (faceMode==='day') ? 720 : 60;
+
+  function fullCirclePath(r){ return arcPath(r, s0, s0+2*Math.PI, sw); }
+  function addTrack(r){
+    const track = document.createElementNS('http://www.w3.org/2000/svg','path');
+    track.setAttribute('d', fullCirclePath(r));
+    track.setAttribute('stroke', '#00000040');
+    track.setAttribute('fill', 'none');
+    track.setAttribute('opacity', '0.4');
+    track.setAttribute('stroke-linecap','round');
+    track.setAttribute('stroke-width', String(sw));
+    group.appendChild(track);
+  }
+  function addArc(r, a1, a2, color, alpha){
+    const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d', arcPath(r, a1, a2, sw));
+    p.setAttribute('stroke', color || '#4da3ff');
+    p.setAttribute('fill', 'none');
+    p.setAttribute('opacity', String(alpha ?? 0.9));
+    p.setAttribute('stroke-linecap','round');
+    p.setAttribute('stroke-width', String(sw));
+    group.appendChild(p);
+
+    const ph = document.createElementNS('http://www.w3.org/2000/svg','path');
+    ph.setAttribute('d', arcPath(r, a1, a2, Math.max(1, sw-3)));
+    ph.setAttribute('stroke', '#ffffff');
+    ph.setAttribute('fill', 'none');
+    ph.setAttribute('opacity', String(Math.max(0, (alpha ?? 0.9) * 0.2)));
+    ph.setAttribute('stroke-linecap','round');
+    ph.setAttribute('stroke-width', String(Math.max(1, sw-3)));
+    group.appendChild(ph);
+  }
+
+  timers.forEach((t, idx)=>{
+    const r = baseR - (insetBase + idx*insetStep);
+    addTrack(r);
+
+    if (t.clockMode === 'outer') {
+      // 一周＝t.total（秒）。残り割合で 12時から短くする
+      const total = Math.max(1, t.total);
+      const remain = Math.max(0, Math.min(t.remain, total));
+      const frac = remain / total;
+      if (frac <= 1e-4) return; // 完全非表示
+      const a1 = s0;
+      const a2 = s0 + 2*Math.PI*frac;
+      addArc(r, a1, a2, (t.gaugeColor||'#4da3ff'), 0.95);
+      return;
+    }
+
+    // 直接配置：最初の角度を固定。以降動かない。0で非表示
+    if (t._anchorTotal !== t.total) { delete t._directAnchorAngle; t._anchorTotal = t.total; }
+    if (t._directAnchorAngle == null) {
+      const curMin = (faceMode==='day') ? ((now.getHours()%12)*60 + now.getMinutes()) : now.getMinutes();
+      t._directAnchorAngle = minToAng(curMin, totalMinOnFace);
+    }
+    const a1 = t._directAnchorAngle;
+    const spanMin = t.total / 60; // 分
+    if (spanMin <= 0) return;
+    const delta = (spanMin / totalMinOnFace) * 2*Math.PI;
+    const a2 = a1 + delta;
+    addArc(r, a1, a2, (t.gaugeColor||'#4da3ff'), 0.75);
+  });
+}
+
+
+  // ============ Numberline Overlays ============
+  function nlRenderTimerOverlays(){
+    // clear
+    document.querySelectorAll('.nl-row .nl-timer, .nl-row .nl-timer-outer').forEach(n=>n.remove());
+    if(!(window.timers && window.timers.length)) return;
+    const nowD = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date()));
+    const rows = Array.from(document.querySelectorAll('.nl-row'));
+  rows.forEach(r=>{ r.__nlStack=0; r.__nlOuterStack=0; });
+    if(!rows.length) return;
+
+    // Identify current hour row
+    const nowHourStart = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate(), nowD.getHours(), 0, 0).getTime();
+    let currentRow = null;
+    rows.forEach(row=>{ const ts = parseInt(row.dataset.startTs||'0',10); if(ts===nowHourStart) currentRow = row; });
+
+    window.timers.forEach(t=>{
+      const remainSec = Math.max(0, t.remain||0);
+      if(remainSec<=0) return;
+      const end = new Date(nowD.getTime() + remainSec*1000);
+
+      // direct placement: overlap bars within each hour
+      if(t.clockMode!=='outer'){
+        rows.forEach(row=>{
+          const startTs = parseInt(row.dataset.startTs||'0',10);
+          const hourStart = new Date(startTs);
+          const hourEnd   = new Date(startTs + 60*60000);
+          const overlapStart = new Date(Math.max(nowD.getTime(), hourStart.getTime()));
+          const overlapEnd   = new Date(Math.min(end.getTime(), hourEnd.getTime()));
+          if(overlapEnd > overlapStart){
+            const startMin = (overlapStart - hourStart)/60000;
+            const endMin   = (overlapEnd   - hourStart)/60000;
+            const leftPct  = Math.max(0, Math.min(50000,((startMin+0.0001)/60)*100));
+            const rightPct = Math.max(0, Math.min(50000,((endMin+0.0001)/60)*100));
+            const widthPct = Math.max(1, rightPct-leftPct);
+            const bar = document.createElement('div');
+            bar.className = 'nl-timer';
+            bar.style.position='absolute';
+            bar.style.left = leftPct + '%';
+            bar.style.width = widthPct + '%';
+            bar.style.height = '10px';
+            bar.style.top = '96%'; // もう少し下げる
+            bar.style.transform = 'translateY(-50%)';
+            bar.style.borderRadius = '6px';
+            bar.style.zIndex = '2';
+            bar.style.background = (t.gaugeColor||'#4da3ff') + '80';
+            bar.title = 'タイマー残り';
+            row.__nlStack = (row.__nlStack||0);
+bar.style.top = `calc(96% + ${row.__nlStack*12}px)`;
+row.__nlStack++;
+const barsEl = row.querySelector('.nl-bars');
+            if(barsEl) barsEl.appendChild(bar);
+          }
+        });
+      }else{
+        // outer mode in numberline: 0-60 full width gauge that shrinks from right, only on current hour row
+        if(currentRow){
+          const barsEl = currentRow.querySelector('.nl-bars');
+          if(barsEl){
+            // make container full-width
+            const total = Math.max(1, t.total);
+            const pct = Math.max(0, Math.min(50000,(t.remain/total)*100));
+            // background track
+            const track = document.createElement('div');
+            track.className = 'nl-timer-outer';
+            track.style.position='absolute';
+            track.style.left = '0%';
+            track.style.width = '100%';
+            track.style.height = '10px';
+            track.style.top = '96%'; // もう少し下げる
+            track.style.transform = 'translateY(-50%)';
+            track.style.borderRadius = '6px';
+            track.style.zIndex = '2';
+            track.style.background = '#00000020';
+            // fill from left to right, then we mask right side by width pct
+            const fill = document.createElement('div');
+fill.style.height='100%';
+fill.style.width = pct + '%';
+fill.style.marginLeft = (100-pct) + '%';
+fill.style.transition = 'none'; // 右から減らす（右から左へ痩せる見え方）
+            fill.style.background = (t.gaugeColor||'#4da3ff') + '99';
+            fill.style.borderRadius='6px';
+            track.appendChild(fill);
+            currentRow.__nlOuterStack = (currentRow.__nlOuterStack||0);
+track.style.top = `calc(96% + ${currentRow.__nlOuterStack*12}px)`;
+currentRow.__nlOuterStack++;
+barsEl.appendChild(track);
+          }
+        }
+      }
+    });
+  }
+
+  // ============ Bindings ============
+  function bind(){
+    const btnAddTimer = $('tAdd'); if(btnAddTimer) btnAddTimer.onclick = addTimer;
+    const btnUntilStart = $('tUntilStart'); if(btnUntilStart) btnUntilStart.onclick = startTimerUntil;
+    const btnAddSW = $('swAdd'); if(btnAddSW) btnAddSW.onclick = addSW;
+    // default until time
+    if($('tUntilTime')){ const d=new Date(Date.now()+25*60000); $('tUntilTime').value=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+    // loops
+    if(!window.__timerIntV2) window.__timerIntV2 = setInterval(tickTimer, 250);
+    if(!window.__swIntV2) window.__swIntV2 = setInterval(()=>{ (window.sws||[]).forEach(sw=>{ if(sw.running){ const sec=sw.elapsed + (Date.now()-sw.start)/1000; const el=$('sw'+sw.id); if(el) el.textContent=fmtSW(sec); } }); }, 250);
+    if(!window.__nlTimerOverlayIntV2) window.__nlTimerOverlayIntV2 = setInterval(nlRenderTimerOverlays, 500);
+    // initial draws
+    renderTimers(); renderSW(); drawTimerArcs(); nlRenderTimerOverlays();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind); else bind();
+})();
+</script>
+<style>
+.nl-timer,.nl-timer-outer{box-shadow:0 1px 3px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.2)}
+</style>
+
+
+<script id="fix-clock-updater">
+(()=>{
+  if (window.__clockFixInstalled) return;
+  window.__clockFixInstalled = true;
+  const $=s=>document.querySelector(s);
+  const h=$('#hHand'), m=$('#mHand'), s=$('#sHand');
+  const dg=$('#digitalTime'), dd=$('#digitalDate');
+  const motion = ()=> (document.querySelectorAll('#motion')[0]?.value==='smooth');
+  let last=-1;
+  function pad(n){return n<10?'0'+n:''+n;}
+  function rot(el,deg){ if(el) el.setAttribute('transform',`rotate(${deg} 250 250)`); }
+  function tick(){
+    const now = (window.__getNow?window.__getNow():(window.__getNow?window.__getNow():(window.__getNow?window.__getNow():new Date())));
+    const hh=now.getHours()%12, mm=now.getMinutes(), ss=now.getSeconds(), ms=now.getMilliseconds();
+    const sm=motion();
+    const sec= sm?(ss+ms/1000):ss;
+    const min= sm?(mm+sec/60):mm;
+    const hr = sm?(hh+min/60):(hh+mm/60);
+    rot(h, hr*30); rot(m, min*6); rot(s, sec*6);
+    if(dg && dd && ss!==last){ last=ss;
+      const wd=["日","月","火","水","木","金","土"][now.getDay()];
+      dg.textContent = `${pad(now.getHours())}:${pad(mm)}:${pad(ss)}`;
+      dd.textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日（${wd}）`;
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+
+
+<script id="time-scale-engine">
+(()=>{
+  if (window.__timeScaleInit) return;
+  window.__timeScaleInit = true;
+  let scale = 1, baseReal = Date.now(), baseVirt = Date.now();
+  function getNowMs(){ if (scale === 1) return Date.now(); return baseVirt + (Date.now()-baseReal)*scale; }
+  window.__getNow = ()=> new Date(getNowMs());
+  window.__getTimeScale = ()=> scale;
+  window.__setTimeScale = (s)=>{
+    s = Math.max(1, Math.min(50000,parseInt(s)||1));
+    if (s === scale) return;
+    baseVirt = getNowMs(); baseReal = Date.now(); scale = s;
+  };
+  // Wire UI if present
+  function bindUI(){
+    const sel = document.getElementById('timeScale');
+    if (!sel) return;
+    sel.onchange = ()=> window.__setTimeScale(sel.value);
+  }
+  document.addEventListener('DOMContentLoaded', bindUI);
+  bindUI();
+})();
+</script>
+
+
+<script id="direct-anchor-store">
+(()=>{
+  if (!window.__directAnchors) {
+    try { window.__directAnchors = new WeakMap(); }
+    catch(e){ window.__directAnchors = new Map(); } // fallback
+  }
+})();
+</script>
+
+
+<script>
+// === Timer HUD (残り時間と終了時刻の数値表示・クリック操作) ===
+(function(){
+  if (window.__timerHudInit) return; window.__timerHudInit = true;
+
+  const $ = (id)=>document.getElementById(id);
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  // Track which timer to show: prefer the most recently started running timer.
+  let activeIndex = -1;
+  function chooseActive(){
+    // Prefer running timers. If multiple, pick the one with the earliest (closest) end.
+    let candidate = -1, bestRem = Infinity;
+    (window.timers||[]).forEach((t,i)=>{
+      if(t.running){
+        if(t.remain < bestRem){ bestRem = t.remain; candidate = i; }
+      }
+    });
+    // If none running, show the one that most recently finished (remain<=0) or the last interacted.
+    if(candidate===-1){
+      (window.timers||[]).forEach((t,i)=>{
+        if(t.remain<=0){
+          if(Math.abs(t.remain) < Math.abs(bestRem)){ bestRem = t.remain; candidate = i; }
+        }
+      });
+    }
+    if(candidate!==-1) activeIndex = candidate;
+  }
+
+  function formatEndFromRemain(remSec){
+    const base = new Date();
+    const end = new Date(base.getTime() + Math.max(0, remSec)*1000);
+    return `${pad(end.getHours())}:${pad(end.getMinutes())}`;
+  }
+
+  function hudLabel(t){
+    const sec = Math.floor(Math.abs(t.remain||0));
+    const mm  = Math.floor(sec/60), ss = sec%60;
+    const sign = (t.remain||0) < 0 ? '-' : '';
+    const endStr = formatEndFromRemain(Math.max(0, t.remain||0));
+    const left = `${sign}${pad(mm)}:${pad(ss)}`;
+    return `残 ${left} ｜ 終 ${endStr}`;
+  }
+
+  function applyStyle(el, t){
+    el.classList.remove('strong','warn','danger');
+    if(!t) return;
+    if(t.remain<=0) el.classList.add('danger');
+    else if(t.remain<=60) el.classList.add('warn');
+    else el.classList.add('strong');
+  }
+
+  function updateHUD(){
+    const el1 = $('plTimerHUD');
+    const el2 = $('nlTimerHUD');
+    if(!el1 && !el2) return;
+    chooseActive();
+    const t = (window.timers||[])[activeIndex];
+    if(!t){
+      if(el1){ el1.textContent = ''; el1.style.display='none'; }
+      if(el2){ el2.textContent = ''; el2.style.display='none'; }
+      return;
+    }
+    const text = hudLabel(t);
+    if(el1){ el1.style.display='inline-block'; el1.textContent = text; applyStyle(el1,t); }
+    if(el2){ el2.style.display='inline-block'; el2.textContent = text; applyStyle(el2,t); }
+  }
+
+  // Click behavior
+  function onClickHUD(){
+    chooseActive();
+    const t = (window.timers||[])[activeIndex];
+    if(!t) return;
+    if(t.remain<=0){
+      // 終了（停止して0に確定）
+      t.running = false; t.remain = 0; t.alerted = true;
+      if(typeof renderTimers === 'function') renderTimers();
+      updateHUD();
+      return;
+    }
+    // toggle pause/resume
+    if(t.running){ if(typeof pauseTimer === 'function') pauseTimer(activeIndex); }
+    else{ if(typeof startTimer === 'function') startTimer(activeIndex); }
+    updateHUD();
+  }
+  ['plTimerHUD','nlTimerHUD'].forEach(id=>{
+    const el = $(id); if(el){ el.addEventListener('click', onClickHUD); }
+  });
+
+  // Monkey-patch key functions to keep HUD in sync
+  function wrap(name, fn){
+    const orig = window[name];
+    window[name] = function(){
+      const r = orig && orig.apply(this, arguments);
+      try{ fn && fn.apply(this, arguments); }catch(e){}
+      return r;
+    };
+  }
+  wrap('startTimer', ()=>{ chooseActive(); updateHUD(); });
+  wrap('pauseTimer', ()=>{ updateHUD(); });
+  wrap('resetTimer', ()=>{ updateHUD(); });
+  wrap('tickTimer',  ()=>{ updateHUD(); });
+  wrap('renderTimers', ()=>{ updateHUD(); });
+
+  // Hook "〜まで開始" to set focus to that timer
+  const untilBtn = $('tUntilStart');
+  if(untilBtn){
+    untilBtn.addEventListener('click', ()=>{
+      setTimeout(()=>{ chooseActive(); updateHUD(); }, 50);
+    });
+  }
+
+  // Initial paint
+  setInterval(updateHUD, 250);
+  updateHUD();
+})();
+</script>
+
+</body>
+</html>
